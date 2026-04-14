@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Racket Booking",
+    "slug": "racket-booking",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "racketbooking",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.racketbooking.app",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.racketbooking.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#00adf5"
+      }
+    },
+    "plugins": ["expo-router"]
+  }
+}

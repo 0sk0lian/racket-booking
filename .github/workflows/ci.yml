@@ -1,0 +1,128 @@
+# GitHub Actions Monorepo CI/CD Workflow
+# Uses path-based change detection to only build what changed.
+# Reference: docs/ARCHITECTURE.md → "DevOps and CI/CD"
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─── Step 1: Detect which packages changed ──────────────────────
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend_changed: ${{ steps.filter.outputs.backend }}
+      mobile_changed: ${{ steps.filter.outputs.mobile }}
+      admin_changed: ${{ steps.filter.outputs.admin }}
+      shared_changed: ${{ steps.filter.outputs.shared }}
+      db_changed: ${{ steps.filter.outputs.db }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'apps/api/**'
+              - 'packages/shared/**'
+            mobile:
+              - 'apps/mobile/**'
+              - 'packages/shared/**'
+            admin:
+              - 'apps/admin/**'
+              - 'packages/shared/**'
+            shared:
+              - 'packages/shared/**'
+            db:
+              - 'packages/db/**'
+
+  # ─── Step 2: Backend tests + build ──────────────────────────────
+  build-backend:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.backend_changed == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Build shared package
+        run: npm run build --workspace=packages/shared
+      - name: Lint API
+        run: npm run lint --workspace=apps/api
+      - name: Run API tests
+        run: npm run test --workspace=apps/api
+      - name: Build API
+        run: npm run build --workspace=apps/api
+
+  # ─── Step 3: Mobile build (iOS) ────────────────────────────────
+  build-mobile-ios:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.mobile_changed == 'true' && github.ref == 'refs/heads/main' }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Install iOS Pods
+        run: cd apps/mobile/ios && pod install
+      - name: Build iOS
+        run: npx expo prebuild --platform ios
+      # In production: add Xcode build + TestFlight upload steps here
+
+  # ─── Step 4: Admin portal build ─────────────────────────────────
+  build-admin:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.admin_changed == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Build shared package
+        run: npm run build --workspace=packages/shared
+      - name: Build admin portal
+        run: npm run build --workspace=apps/admin
+
+  # ─── Step 5: Database migration check ───────────────────────────
+  check-migrations:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.db_changed == 'true' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: racket_booking_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --workspace=packages/db
+      - name: Run migrations against test DB
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/racket_booking_test
+        run: node packages/db/migrate.js
