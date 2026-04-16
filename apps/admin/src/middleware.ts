@@ -17,13 +17,18 @@ const PUBLIC_PATHS = [
   '/login',
   '/auth/callback',
   '/api',           // API routes handle their own auth via Supabase service_role
+  '/clubs',         // Public club browsing (consumer)
 ];
+
+// The landing page (/) is public for everyone
+const EXACT_PUBLIC = ['/', '/clubs'];
 
 export async function middleware(request: NextRequest) {
   const { supabaseResponse, user } = await updateSession(request);
 
   const path = request.nextUrl.pathname;
   const isPublic =
+    EXACT_PUBLIC.includes(path) ||
     PUBLIC_PATHS.some(p => path === p || path.startsWith(p + '/'));
 
   if (!user && !isPublic) {

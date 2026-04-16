@@ -1,4 +1,4 @@
-import { apiGet } from './api';
+import { apiGet } from '../api';
 
 export default async function DashboardPage() {
   const [clubs, courts, bookings, users] = await Promise.all([

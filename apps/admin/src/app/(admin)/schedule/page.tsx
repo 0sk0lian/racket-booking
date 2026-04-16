@@ -15,10 +15,10 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   ScheduleGrid, GridDay, GridItem, CellKey, selectionToSlots, parseCellKey,
-} from '../../components/ScheduleGrid';
-import { FilterBar, FilterOption } from '../../components/FilterBar';
-import { BookingModal, BType } from '../../components/BookingModal';
-import { ApplyPreviewModal } from '../../components/ApplyPreviewModal';
+} from '../../../components/ScheduleGrid';
+import { FilterBar, FilterOption } from '../../../components/FilterBar';
+import { BookingModal, BType } from '../../../components/BookingModal';
+import { ApplyPreviewModal } from '../../../components/ApplyPreviewModal';
 
 const API = '/api';
 

@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 // Top-level nav items — always visible
 const mainNav = [
-  { href: '/', label: 'Dashboard', icon: 'D', color: '#6366f1' },
+  { href: '/dashboard', label: 'Dashboard', icon: 'D', color: '#6366f1' },
   { href: '/schedule', label: 'Schema', icon: 'S', color: '#06b6d4' },
   { href: '/bookings', label: 'Bokningar', icon: 'B', color: '#10b981' },
 ];
@@ -56,7 +56,7 @@ const collapsible = [
       { href: '/admin/courts', label: 'Banor' },
       { href: '/admin/blackouts', label: 'Stängningar' },
       { href: '/admin/settings', label: 'Inställningar' },
-      { href: '/clubs', label: 'Alla Klubbar' },
+      { href: '/admin/manage-clubs', label: 'Alla Klubbar' },
     ],
   },
 ];

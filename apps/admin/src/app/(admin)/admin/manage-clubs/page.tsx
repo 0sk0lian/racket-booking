@@ -1,4 +1,4 @@
-import { apiGet } from '../api';
+import { apiGet } from '../../api';
 import Link from 'next/link';
 
 export default async function ClubsPage() {
