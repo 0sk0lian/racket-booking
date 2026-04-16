@@ -1,11 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "buildCommand": "cd apps/admin && npm install && npx next build",
-  "installCommand": "npm install",
-  "outputDirectory": "apps/admin/.next",
-  "devCommand": "cd apps/admin && npx next dev --port 3000",
-  "ignoreCommand": "npx turbo-ignore",
+  "rootDirectory": "apps/admin",
   "headers": [
     {
       "source": "/api/(.*)",
