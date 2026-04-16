@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 interface PlayerDetail { id: string; full_name: string; email: string; groups: { id: string; name: string; category: string; parent_name: string | null }[]; sessions: { id: string; title: string; day_of_week: number; day_name: string; start_hour: number; end_hour: number; status: string; trainer_name: string; court_name: string; applied_count: number }[]; submissions: { form_title: string; submitted_at: string }[]; bookingCount: number; }
 

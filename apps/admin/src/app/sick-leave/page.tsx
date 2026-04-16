@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 export default function SickLeavePage() {
   const [clubs, setClubs] = useState<any[]>([]); const [clubId, setClubId] = useState('');

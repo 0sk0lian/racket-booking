@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-const API = 'http://localhost:3001/api';
+const API = '/api';
 const DAYS = ['Sön', 'Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör'];
 
 export default function SeasonsPage() {

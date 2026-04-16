@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 export default function LeaguesPage() {
   const [clubs, setClubs] = useState<any[]>([]); const [clubId, setClubId] = useState('');

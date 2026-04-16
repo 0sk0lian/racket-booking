@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-const API = 'http://localhost:3001/api';
+const API = '/api';
 const CATS = [{ v: 'junior', l: 'Junior', c: '#06b6d4' }, { v: 'adult', l: 'Vuxen', c: '#10b981' }, { v: 'senior', l: 'Senior', c: '#f59e0b' }, { v: 'camp', l: 'Läger', c: '#ec4899' }, { v: 'competition', l: 'Tävling', c: '#ef4444' }];
 
 export default function RegistrationFormsPage() {

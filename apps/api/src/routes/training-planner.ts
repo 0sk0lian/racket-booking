@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { store } from '../store.js';
+import crypto from 'crypto';
+import { store, RecurrenceRuleRow } from '../store.js';
 import { generateSecurePin } from '../utils/hardware.js';
+import { materialize } from '../services/recurrence-engine.js';
 
 export const trainingPlannerRoutes = Router();
 
@@ -132,6 +134,11 @@ trainingPlannerRoutes.delete('/:id', (req: Request, res: Response) => {
 // POST /api/training-planner/apply — generate real bookings from templates across a date range
 // Body: { clubId, startDate: 'YYYY-MM-DD', endDate: 'YYYY-MM-DD', sessionIds?: string[] }
 // If sessionIds is omitted, applies ALL planned sessions for the club.
+//
+// Routes through the recurrence engine so blackouts are honored and every booking
+// in this apply call shares one generation_batch_id (returned as `batchId`) —
+// clients can hand that id to a future `DELETE /api/apply-batches/:batchId` to
+// undo the whole apply in one shot.
 trainingPlannerRoutes.post('/apply', (req: Request, res: Response) => {
   const { clubId, startDate, endDate, sessionIds } = req.body;
   if (!clubId || !startDate || !endDate) {
@@ -141,48 +148,80 @@ trainingPlannerRoutes.post('/apply', (req: Request, res: Response) => {
   let templates = store.trainingSessions.filter(s => s.club_id === clubId && s.status !== 'cancelled');
   if (sessionIds?.length) templates = templates.filter(s => sessionIds.includes(s.id));
 
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const batchId = crypto.randomUUID();
   const results: { sessionTitle: string; date: string; status: string; bookingId?: string; error?: string }[] = [];
 
-  // Iterate each day in the range
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dow = d.getDay();
-    const dateStr = d.toISOString().split('T')[0];
+  for (const t of templates) {
+    const court = store.courts.find(c => c.id === t.court_id);
+    if (!court) {
+      results.push({ sessionTitle: t.title, date: startDate, status: 'failed', error: 'Bana ej hittad' });
+      continue;
+    }
 
-    // Find templates for this weekday
-    const dayTemplates = templates.filter(t => t.day_of_week === dow);
+    // Synthesize a rule mirroring this template, using applied_dates as skip_dates
+    // so already-applied dates don't re-create bookings.
+    const rule: RecurrenceRuleRow = {
+      id: t.id,
+      club_id: t.club_id,
+      title: t.title,
+      booking_type: 'training',
+      court_id: t.court_id,
+      start_hour: t.start_hour,
+      end_hour: t.end_hour,
+      freq: 'weekly',
+      interval_n: 1,
+      weekdays: [t.day_of_week],
+      start_date: startDate,
+      end_date: endDate,
+      skip_dates: [...t.applied_dates],
+      trainer_id: t.trainer_id,
+      player_ids: t.player_ids,
+      event_name: null,
+      event_max_participants: null,
+      notes: `${t.title}${t.notes ? ' — ' + t.notes : ''}`,
+      is_active: true,
+      created_by: t.trainer_id,
+      created_at: t.created_at,
+      updated_at: t.updated_at,
+    };
 
-    for (const t of dayTemplates) {
-      // Skip if already applied to this date
-      if (t.applied_dates.includes(dateStr)) {
-        results.push({ sessionTitle: t.title, date: dateStr, status: 'skipped', error: 'Redan tillämpat' });
-        continue;
+    const trainerRecord = store.trainers.find(tr => tr.user_id === t.trainer_id);
+    const result = materialize(rule, startDate, endDate, {
+      booker_id: t.trainer_id,
+      access_pin: generateSecurePin,
+      batch_id: batchId,
+      priceFor: () => ({ total_price: 0, platform_fee: 0, court_rental_vat_rate: 0 }), // training is free
+    });
+
+    // Replace booking's trainer_id with the legacy TrainerRow.id so existing
+    // code that looks up store.trainers by booking.trainer_id still works.
+    if (trainerRecord) {
+      for (const bid of result.created_booking_ids) {
+        const b = store.bookings.find(x => x.id === bid);
+        if (b) b.trainer_id = trainerRecord.id;
       }
+    }
 
-      const court = store.courts.find(c => c.id === t.court_id);
-      if (!court) { results.push({ sessionTitle: t.title, date: dateStr, status: 'failed', error: 'Bana ej hittad' }); continue; }
+    // Report per-date outcomes in the shape the legacy UI expects
+    for (const bid of result.created_booking_ids) {
+      const b = store.bookings.find(x => x.id === bid)!;
+      const dateStr = b.time_slot_start.split('T')[0];
+      if (!t.applied_dates.includes(dateStr)) t.applied_dates.push(dateStr);
+      results.push({ sessionTitle: t.title, date: dateStr, status: 'created', bookingId: bid });
+    }
+    for (const c of result.conflicts) {
+      results.push({ sessionTitle: t.title, date: c.date, status: 'failed', error: 'Redan bokad' });
+    }
+    for (const b of result.blackouts) {
+      results.push({ sessionTitle: t.title, date: b.date, status: 'failed', error: `Stängt: ${b.reason ?? 'blackout'}` });
+    }
+    for (const sd of result.skipped_dates) {
+      results.push({ sessionTitle: t.title, date: sd, status: 'skipped', error: 'Redan tillämpat' });
+    }
 
-      const trainerRecord = store.trainers.find(tr => tr.user_id === t.trainer_id);
-      const startTime = `${dateStr}T${String(t.start_hour).padStart(2, '0')}:00:00`;
-      const endTime = `${dateStr}T${String(t.end_hour).padStart(2, '0')}:00:00`;
-
-      try {
-        const booking = store.createBooking({
-          court_id: t.court_id, booker_id: t.trainer_id,
-          time_slot_start: startTime, time_slot_end: endTime,
-          status: 'confirmed', total_price: 0, // Training is free
-          access_pin: generateSecurePin(), booking_type: 'training',
-          trainer_id: trainerRecord?.id ?? null, player_ids: t.player_ids,
-          notes: `${t.title}${t.notes ? ' — ' + t.notes : ''}`,
-        });
-        t.applied_dates.push(dateStr);
-        t.status = 'applied';
-        t.updated_at = new Date().toISOString();
-        results.push({ sessionTitle: t.title, date: dateStr, status: 'created', bookingId: booking.id });
-      } catch (err: any) {
-        results.push({ sessionTitle: t.title, date: dateStr, status: 'failed', error: err.code === '23P01' ? 'Redan bokad' : err.message });
-      }
+    if (result.created > 0) {
+      t.status = 'applied';
+      t.updated_at = new Date().toISOString();
     }
   }
 
@@ -190,5 +229,5 @@ trainingPlannerRoutes.post('/apply', (req: Request, res: Response) => {
   const skipped = results.filter(r => r.status === 'skipped').length;
   const failed = results.filter(r => r.status === 'failed').length;
 
-  res.json({ success: true, data: { created, skipped, failed, total: results.length, results } });
+  res.json({ success: true, data: { created, skipped, failed, total: results.length, batchId, results } });
 });

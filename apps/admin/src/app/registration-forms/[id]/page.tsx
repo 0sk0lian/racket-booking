@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 interface FormField { key: string; label: string; type: 'text' | 'select' | 'number' | 'checkbox'; options?: string[]; required: boolean; }
 

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 interface Club {
   id: string; name: string; organization_number: string; is_non_profit: boolean;

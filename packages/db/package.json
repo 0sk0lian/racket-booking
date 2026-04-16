@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "build": "echo 'no build step for db'",
-    "db:migrate": "node migrate.js"
+    "db:migrate": "node migrate.js",
+    "db:seed": "node seed.js"
   },
   "dependencies": {
     "pg": "^8.13.0",
-    "dotenv": "^16.4.0"
+    "dotenv": "^16.4.0",
+    "bcryptjs": "^2.4.3"
   }
 }

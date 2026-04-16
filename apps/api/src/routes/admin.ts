@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { store } from '../store.js';
 import { generateSecurePin } from '../utils/hardware.js';
+import { materialize, toLocalDateStr, parseLocalDate } from '../services/recurrence-engine.js';
 
 export const adminRoutes = Router();
 
@@ -137,53 +138,104 @@ adminRoutes.delete('/bookings/:id', (req: Request, res: Response) => {
 });
 
 // POST /api/admin/bookings/bulk — create bookings (handles all 4 types)
+// Contracts route through the recurrence engine so they respect blackouts and
+// carry a generation_batch_id for undo. Non-contract types take the simple
+// one-shot path. See: apps/api/src/services/recurrence-engine.ts
 adminRoutes.post('/bookings/bulk', (req: Request, res: Response) => {
   const { slots, bookerId, bookingType, trainerId, playerIds, notes, eventName, eventMaxParticipants, repeatWeeks } = req.body;
   if (!slots?.length) { res.status(400).json({ success: false, error: 'slots array required' }); return; }
 
   const results: any[] = [];
   const errors: any[] = [];
-  const contractId = bookingType === 'contract' ? crypto.randomUUID() : null;
 
-  // For contracts: generate repeated weeks
-  const weeksToCreate = bookingType === 'contract' ? Math.max(1, repeatWeeks || 4) : 1;
-
-  for (let week = 0; week < weeksToCreate; week++) {
+  // ─── Contract path: one recurrence rule per slot, materialize across N weeks ───
+  if (bookingType === 'contract') {
+    const weeks = Math.max(1, Number(repeatWeeks) || 4);
     for (const slot of slots) {
       const court = store.courts.find(c => c.id === slot.courtId && c.is_active);
       if (!court) { errors.push({ ...slot, error: 'Court not found' }); continue; }
 
-      // Offset the dates by week number
-      let startTime = slot.startTime;
-      let endTime = slot.endTime;
-      if (week > 0) {
-        const s = new Date(slot.startTime); s.setDate(s.getDate() + week * 7); startTime = s.toISOString();
-        const e = new Date(slot.endTime); e.setDate(e.getDate() + week * 7); endTime = e.toISOString();
-      }
+      const startDate = slot.startTime.split('T')[0];
+      const endDate = toLocalDateStr(new Date(parseLocalDate(startDate).getTime() + (weeks - 1) * 7 * 86_400_000));
+      const startHour = Number(slot.startTime.split('T')[1].slice(0, 2));
+      const endHour = Number(slot.endTime.split('T')[1].slice(0, 2));
 
-      const durationHours = (new Date(endTime).getTime() - new Date(startTime).getTime()) / 3_600_000;
-      let totalPrice = court.base_hourly_rate * durationHours * 1.05;
-      if (bookingType === 'training' && trainerId) {
-        const trainer = store.trainers.find(t => t.id === trainerId);
-        if (trainer) totalPrice += trainer.hourly_rate * durationHours;
-      }
-      if (bookingType === 'event') totalPrice = 0;
+      const rule = store.createRecurrenceRule({
+        club_id: court.club_id,
+        title: notes || 'Contract',
+        booking_type: 'contract',
+        court_id: slot.courtId,
+        start_hour: startHour,
+        end_hour: endHour,
+        freq: 'weekly',
+        interval_n: 1,
+        weekdays: [parseLocalDate(startDate).getDay()],
+        start_date: startDate,
+        end_date: endDate,
+        trainer_id: trainerId || null,
+        player_ids: playerIds || [],
+        notes: notes || null,
+        created_by: bookerId || null,
+      });
 
-      try {
-        const booking = store.createBooking({
-          court_id: slot.courtId, booker_id: bookerId || 'admin',
-          time_slot_start: startTime, time_slot_end: endTime,
-          status: 'confirmed', total_price: totalPrice, access_pin: generateSecurePin(),
-          booking_type: bookingType || 'regular',
-          trainer_id: trainerId || null, player_ids: playerIds || [],
-          contract_id: contractId, recurrence_day: bookingType === 'contract' ? new Date(startTime).getDay() : null,
-          event_name: eventName || null, event_max_participants: eventMaxParticipants || null,
-          event_attendee_ids: [], notes: notes || null,
-        });
-        results.push(booking);
-      } catch (err: any) {
-        errors.push({ ...slot, week, error: err.code === '23P01' ? 'Slot already booked' : err.message });
+      const result = materialize(rule, startDate, endDate, {
+        booker_id: bookerId || 'admin',
+        access_pin: generateSecurePin,
+        priceFor: (_inst, r) => {
+          const durationHours = r.end_hour - r.start_hour;
+          return {
+            total_price: court.base_hourly_rate * durationHours * 1.05,
+            platform_fee: court.base_hourly_rate * durationHours * 0.05,
+            court_rental_vat_rate: 0.06,
+          };
+        },
+      });
+
+      // Preserve legacy response shape + also include contract_id + batch_id for clients
+      // that want to target the whole batch (e.g. a future "undo" button).
+      for (const bid of result.created_booking_ids) {
+        const b = store.bookings.find(x => x.id === bid);
+        if (b) {
+          b.contract_id = rule.id;
+          b.recurrence_day = parseLocalDate(startDate).getDay();
+          results.push(b);
+        }
       }
+      for (const c of result.conflicts) errors.push({ courtId: c.court_id, startTime: c.start_iso, endTime: c.end_iso, error: 'Slot already booked' });
+      for (const b of result.blackouts) errors.push({ courtId: b.court_id, startTime: b.start_iso, endTime: b.end_iso, error: `Blackout: ${b.reason ?? 'closed'}` });
+    }
+
+    res.json({ success: true, data: { created: results.length, failed: errors.length, results, errors } });
+    return;
+  }
+
+  // ─── Non-contract path: single-shot creation, unchanged behavior ───
+  for (const slot of slots) {
+    const court = store.courts.find(c => c.id === slot.courtId && c.is_active);
+    if (!court) { errors.push({ ...slot, error: 'Court not found' }); continue; }
+
+    const durationHours = (new Date(slot.endTime).getTime() - new Date(slot.startTime).getTime()) / 3_600_000;
+    let totalPrice = court.base_hourly_rate * durationHours * 1.05;
+    if (bookingType === 'training' && trainerId) {
+      const trainer = store.trainers.find(t => t.id === trainerId);
+      if (trainer) totalPrice += trainer.hourly_rate * durationHours;
+    }
+    if (bookingType === 'event') totalPrice = 0;
+
+    try {
+      const booking = store.createBooking({
+        court_id: slot.courtId, booker_id: bookerId || 'admin',
+        time_slot_start: slot.startTime, time_slot_end: slot.endTime,
+        status: 'confirmed', total_price: totalPrice, access_pin: generateSecurePin(),
+        booking_type: bookingType || 'regular',
+        trainer_id: trainerId || null, player_ids: playerIds || [],
+        contract_id: null, recurrence_day: null,
+        event_name: eventName || null, event_max_participants: eventMaxParticipants || null,
+        event_attendee_ids: [], notes: notes || null,
+      });
+      results.push(booking);
+    } catch (err: any) {
+      errors.push({ ...slot, error: err.code === '23P01' ? 'Slot already booked' : err.message });
     }
   }
 

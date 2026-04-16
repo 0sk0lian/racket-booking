@@ -10,6 +10,11 @@
   },
   "dependencies": {
     "@racket-booking/shared": "*",
+    "@sentry/nextjs": "^10.48.0",
+    "@supabase/auth-ui-react": "^0.4.7",
+    "@supabase/auth-ui-shared": "^0.1.8",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.103.1",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

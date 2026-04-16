@@ -66,6 +66,9 @@ interface BookingRow {
   // General
   notes: string | null;
   cancellation_reason: string | null;
+  // Recurrence linkage (see migrations 007 + 010)
+  recurrence_rule_id: string | null;    // rule that generated this booking
+  generation_batch_id: string | null;   // apply-to-period batch id, for undo
   created_at: string; updated_at: string;
 }
 
@@ -316,6 +319,71 @@ interface WeeklyTemplateRow {
   updated_at: string;
 }
 
+// ─── Recurrence Rules (unified scheduling primitive) ────────────
+// Replaces the patchwork of training-session templates + weekly-templates +
+// bookings.contract_id groups with one concept. The recurrence engine expands
+// a rule into concrete booking instances, honoring blackouts + skip_dates.
+// See: packages/db/migrations/007_recurrence_rules.sql
+export interface RecurrenceRuleRow {
+  id: string;
+  club_id: string;
+  title: string;
+  booking_type: 'regular' | 'training' | 'contract' | 'event';
+
+  court_id: string;
+  start_hour: number;   // 0..23
+  end_hour: number;     // > start_hour, up to 24
+
+  freq: 'once' | 'weekly' | 'biweekly' | 'monthly';
+  interval_n: number;           // 1 = every period, 2 = every other, etc.
+  weekdays: number[];           // 0=Sun..6=Sat; empty array allowed only for freq='once'
+  start_date: string;           // YYYY-MM-DD
+  end_date: string | null;      // null = open-ended
+  skip_dates: string[];         // YYYY-MM-DD explicit holes
+
+  trainer_id: string | null;
+  player_ids: string[];
+  event_name: string | null;
+  event_max_participants: number | null;
+
+  notes: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Blackout Periods (closures / holidays / maintenance) ──────
+// First-class exclusion the recurrence engine always respects.
+// See: packages/db/migrations/008_blackout_periods.sql
+export interface BlackoutPeriodRow {
+  id: string;
+  club_id: string;
+  starts_at: string;            // ISO timestamp
+  ends_at: string;              // ISO timestamp, > starts_at
+  reason: string | null;
+  court_ids: string[];          // empty = all courts at this club
+  created_by: string | null;
+  created_at: string;
+}
+
+// ─── Attendance (RSVP + check-in per booking, per user) ────────
+// Replaces the booking-level player_ids / event_attendee_ids arrays with a
+// proper relation that carries RSVP state, waitlist order, and check-in.
+// See: packages/db/migrations/009_attendance.sql
+export interface AttendanceRow {
+  booking_id: string;
+  user_id: string;
+  status: 'invited' | 'going' | 'declined' | 'waitlist' | 'present' | 'no_show';
+  responded_at: string | null;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+  waitlist_position: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ─── Store ──────────────────────────────────────────────────────
 
 function uid(): string { return crypto.randomUUID(); }
@@ -347,6 +415,9 @@ class InMemoryStore {
   bookings: BookingRow[] = [];
   splitPayments: SplitPaymentRow[] = [];
   matches: MatchRow[] = [];
+  recurrenceRules: RecurrenceRuleRow[] = [];
+  blackoutPeriods: BlackoutPeriodRow[] = [];
+  attendance: AttendanceRow[] = [];
   tournaments: TournamentRow[] = [];
 
   // ─── Clubs ──────────────────────────────────────────────────
@@ -530,10 +601,93 @@ class InMemoryStore {
       event_max_participants: data.event_max_participants ?? null,
       event_attendee_ids: data.event_attendee_ids ?? [],
       notes: data.notes ?? null,
-      cancellation_reason: null, created_at: now(), updated_at: now(),
+      cancellation_reason: null,
+      recurrence_rule_id: data.recurrence_rule_id ?? null,
+      generation_batch_id: data.generation_batch_id ?? null,
+      created_at: now(), updated_at: now(),
     };
     this.bookings.push(booking);
     return booking;
+  }
+
+  // ─── Recurrence Rules ──────────────────────────────────────
+  createRecurrenceRule(data: Partial<RecurrenceRuleRow>): RecurrenceRuleRow {
+    if (data.end_hour !== undefined && data.start_hour !== undefined && data.end_hour <= data.start_hour) {
+      throw new Error('end_hour must be greater than start_hour');
+    }
+    const rule: RecurrenceRuleRow = {
+      id: uid(),
+      club_id: data.club_id!,
+      title: data.title ?? 'Untitled',
+      booking_type: data.booking_type ?? 'training',
+      court_id: data.court_id!,
+      start_hour: data.start_hour!,
+      end_hour: data.end_hour!,
+      freq: data.freq ?? 'weekly',
+      interval_n: data.interval_n ?? 1,
+      weekdays: data.weekdays ?? [],
+      start_date: data.start_date!,
+      end_date: data.end_date ?? null,
+      skip_dates: data.skip_dates ?? [],
+      trainer_id: data.trainer_id ?? null,
+      player_ids: data.player_ids ?? [],
+      event_name: data.event_name ?? null,
+      event_max_participants: data.event_max_participants ?? null,
+      notes: data.notes ?? null,
+      is_active: data.is_active ?? true,
+      created_by: data.created_by ?? null,
+      created_at: now(), updated_at: now(),
+    };
+    this.recurrenceRules.push(rule);
+    return rule;
+  }
+
+  // ─── Blackout Periods ──────────────────────────────────────
+  createBlackoutPeriod(data: Partial<BlackoutPeriodRow>): BlackoutPeriodRow {
+    if (data.starts_at && data.ends_at && new Date(data.ends_at) <= new Date(data.starts_at)) {
+      throw new Error('ends_at must be after starts_at');
+    }
+    const bp: BlackoutPeriodRow = {
+      id: uid(),
+      club_id: data.club_id!,
+      starts_at: data.starts_at!,
+      ends_at: data.ends_at!,
+      reason: data.reason ?? null,
+      court_ids: data.court_ids ?? [],
+      created_by: data.created_by ?? null,
+      created_at: now(),
+    };
+    this.blackoutPeriods.push(bp);
+    return bp;
+  }
+
+  // ─── Attendance ────────────────────────────────────────────
+  // upsert-style: any given (booking, user) pair is unique.
+  upsertAttendance(data: Partial<AttendanceRow> & { booking_id: string; user_id: string }): AttendanceRow {
+    const existing = this.attendance.find(a => a.booking_id === data.booking_id && a.user_id === data.user_id);
+    if (existing) {
+      if (data.status !== undefined) existing.status = data.status;
+      if (data.responded_at !== undefined) existing.responded_at = data.responded_at;
+      if (data.checked_in_at !== undefined) existing.checked_in_at = data.checked_in_at;
+      if (data.checked_in_by !== undefined) existing.checked_in_by = data.checked_in_by;
+      if (data.waitlist_position !== undefined) existing.waitlist_position = data.waitlist_position;
+      if (data.notes !== undefined) existing.notes = data.notes;
+      existing.updated_at = now();
+      return existing;
+    }
+    const row: AttendanceRow = {
+      booking_id: data.booking_id,
+      user_id: data.user_id,
+      status: data.status ?? 'invited',
+      responded_at: data.responded_at ?? null,
+      checked_in_at: data.checked_in_at ?? null,
+      checked_in_by: data.checked_in_by ?? null,
+      waitlist_position: data.waitlist_position ?? null,
+      notes: data.notes ?? null,
+      created_at: now(), updated_at: now(),
+    };
+    this.attendance.push(row);
+    return row;
   }
 
   // ─── Split Payments ─────────────────────────────────────────
@@ -872,7 +1026,142 @@ class InMemoryStore {
 
     console.log('[store] Seeded: 2 clubs, 6 courts, 6 users, 6 bookings, 20 matches');
   }
+
+  /**
+   * Backfill legacy scheduling structures into the unified `recurrenceRules` table.
+   *
+   * Three sources get folded in:
+   *   1. `trainingSessions` — weekday-based training templates
+   *   2. `weeklyTemplates` — generic weekly activity templates (training/contract/event)
+   *   3. bookings grouped by `contract_id` — each contract group becomes one
+   *      weekly rule and each constituent booking gets `recurrence_rule_id` set.
+   *
+   * Runs once at boot after seed(). Idempotent: checks for an existing rule
+   * before inserting so re-running the backfill (e.g. in tests) is safe.
+   */
+  backfillRecurrenceRules(): { created: number; linked_bookings: number } {
+    let created = 0;
+    let linked = 0;
+    const today = new Date().toISOString().split('T')[0];
+
+    // 1. Training sessions → weekly training rules
+    for (const ts of this.trainingSessions) {
+      if (this.recurrenceRules.find(r => r.id === ts.id)) continue;
+      const rule: RecurrenceRuleRow = {
+        id: ts.id, // preserve id so applied_dates logic can still find the rule
+        club_id: ts.club_id,
+        title: ts.title,
+        booking_type: 'training',
+        court_id: ts.court_id,
+        start_hour: ts.start_hour,
+        end_hour: ts.end_hour,
+        freq: 'weekly',
+        interval_n: 1,
+        weekdays: [ts.day_of_week],
+        start_date: ts.created_at.split('T')[0],
+        end_date: null,
+        skip_dates: [],
+        trainer_id: ts.trainer_id,
+        player_ids: ts.player_ids,
+        event_name: null,
+        event_max_participants: null,
+        notes: ts.notes,
+        is_active: ts.status !== 'cancelled',
+        created_by: null,
+        created_at: ts.created_at,
+        updated_at: ts.updated_at,
+      };
+      this.recurrenceRules.push(rule);
+      created++;
+    }
+
+    // 2. Weekly templates → rules with matching booking_type
+    for (const wt of this.weeklyTemplates) {
+      if (this.recurrenceRules.find(r => r.id === wt.id)) continue;
+      this.recurrenceRules.push({
+        id: wt.id,
+        club_id: wt.club_id,
+        title: wt.title,
+        booking_type: wt.activity_type,
+        court_id: wt.court_id,
+        start_hour: wt.start_hour,
+        end_hour: wt.end_hour,
+        freq: 'weekly',
+        interval_n: 1,
+        weekdays: [wt.day_of_week],
+        start_date: wt.created_at.split('T')[0],
+        end_date: null,
+        skip_dates: [],
+        trainer_id: wt.trainer_id,
+        player_ids: wt.player_ids,
+        event_name: wt.activity_type === 'event' ? wt.title : null,
+        event_max_participants: wt.event_max_participants,
+        notes: wt.notes,
+        is_active: wt.is_active,
+        created_by: null,
+        created_at: wt.created_at,
+        updated_at: wt.updated_at,
+      });
+      created++;
+    }
+
+    // 3. Contract-grouped bookings → one rule per contract_id, link bookings
+    const contractGroups = new Map<string, BookingRow[]>();
+    for (const b of this.bookings) {
+      if (!b.contract_id) continue;
+      if (!contractGroups.has(b.contract_id)) contractGroups.set(b.contract_id, []);
+      contractGroups.get(b.contract_id)!.push(b);
+    }
+    for (const [contractId, bookings] of contractGroups) {
+      if (this.recurrenceRules.find(r => r.id === contractId)) continue;
+      bookings.sort((a, b) => a.time_slot_start.localeCompare(b.time_slot_start));
+      const first = bookings[0];
+      const last = bookings[bookings.length - 1];
+      const court = this.courts.find(c => c.id === first.court_id);
+      const rule: RecurrenceRuleRow = {
+        id: contractId,
+        club_id: court?.club_id ?? this.clubs[0]?.id ?? '',
+        title: first.notes?.split('—')[0]?.trim() || 'Contract',
+        booking_type: 'contract',
+        court_id: first.court_id,
+        start_hour: new Date(first.time_slot_start).getHours(),
+        end_hour: new Date(first.time_slot_end).getHours(),
+        freq: 'weekly',
+        interval_n: 1,
+        weekdays: [first.recurrence_day ?? new Date(first.time_slot_start).getDay()],
+        start_date: first.time_slot_start.split('T')[0],
+        end_date: last.time_slot_start.split('T')[0],
+        skip_dates: [],
+        trainer_id: first.trainer_id,
+        player_ids: [],
+        event_name: null,
+        event_max_participants: null,
+        notes: first.notes,
+        is_active: true,
+        created_by: first.booker_id,
+        created_at: first.created_at,
+        updated_at: first.updated_at,
+      };
+      this.recurrenceRules.push(rule);
+      created++;
+
+      for (const b of bookings) {
+        if (!b.recurrence_rule_id) {
+          b.recurrence_rule_id = contractId;
+          linked++;
+        }
+      }
+    }
+
+    // Suppress unused-var warning on `today` — kept around for future use
+    // (e.g. deciding end_date vs null) without changing the signature.
+    void today;
+
+    console.log(`[store] Backfilled: ${created} recurrence rule(s), linked ${linked} booking(s)`);
+    return { created, linked_bookings: linked };
+  }
 }
 
 export const store = new InMemoryStore();
 store.seed();
+store.backfillRecurrenceRules();

@@ -18,6 +18,10 @@ import { featuresRoutes } from './routes/features.js';
 import { matchiRoutes } from './routes/matchi.js';
 import { trainingPlannerRoutes } from './routes/training-planner.js';
 import { registrationFormRoutes } from './routes/registration-forms.js';
+import { availabilityRoutes } from './routes/availability.js';
+import { recurrenceRoutes, applyBatchesRoutes } from './routes/recurrence.js';
+import { blackoutRoutes } from './routes/blackouts.js';
+import { bookingAttendanceRoutes, userAttendanceRoutes } from './routes/attendance.js';
 
 dotenv.config({ path: '../../.env' });
 
@@ -118,6 +122,14 @@ app.use('/api/features', featuresRoutes);
 app.use('/api/matchi', matchiRoutes);
 app.use('/api/training-planner', trainingPlannerRoutes);
 app.use('/api/registration-forms', registrationFormRoutes);
+app.use('/api/availability', availabilityRoutes);
+app.use('/api/recurrence-rules', recurrenceRoutes);
+app.use('/api/apply-batches', applyBatchesRoutes);
+app.use('/api/blackouts', blackoutRoutes);
+// Attendance routes are nested under existing /api/bookings and /api/users.
+// They share the URL space but live in their own router for clarity.
+app.use('/api/bookings', bookingAttendanceRoutes);
+app.use('/api/users', userAttendanceRoutes);
 
 // Global error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

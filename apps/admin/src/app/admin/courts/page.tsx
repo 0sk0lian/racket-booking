@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 interface Court {
   id: string; club_id: string; name: string; sport_type: string;

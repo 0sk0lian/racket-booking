@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 const SPORTS = ['padel', 'tennis', 'squash', 'badminton'];
 
 interface UserWithTrainer {

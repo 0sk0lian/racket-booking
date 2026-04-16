@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-const API = 'http://localhost:3001/api';
+const API = '/api';
 const DAYS = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
 const DAY_IDX = [1, 2, 3, 4, 5, 6, 0];
 

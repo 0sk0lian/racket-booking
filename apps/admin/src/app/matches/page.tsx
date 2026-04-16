@@ -23,7 +23,7 @@ export default function MatchesPage() {
   const [t2p1, setT2p1] = useState(''); const [t2p2, setT2p2] = useState('');
   const [score1, setScore1] = useState(''); const [score2, setScore2] = useState('');
 
-  const API = 'http://localhost:3001/api';
+  const API = '/api';
 
   useEffect(() => {
     Promise.all([

@@ -44,7 +44,6 @@ const collapsible = [
     items: [
       { href: '/training-planner', label: 'Träningsplanerare' },
       { href: '/admin/trainers', label: 'Tränare' },
-      { href: '/admin/trainer-scheduling', label: 'Veckoplanering' },
       { href: '/employee-schedule', label: 'Personalschema' },
       { href: '/employee-time', label: 'Tidrapportering' },
       { href: '/sick-leave', label: 'Sjukanmälan' },
@@ -55,6 +54,7 @@ const collapsible = [
     hub: '/admin/settings',
     items: [
       { href: '/admin/courts', label: 'Banor' },
+      { href: '/admin/blackouts', label: 'Stängningar' },
       { href: '/admin/settings', label: 'Inställningar' },
       { href: '/clubs', label: 'Alla Klubbar' },
     ],
@@ -115,7 +115,7 @@ export function Sidebar() {
             <button
               onClick={() => toggleSection(sec.key, sec.hub)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+                display: 'flex', alignItems: 'center', gap: 12,
                 padding: '10px 14px', borderRadius: 10,
                 border: 'none', cursor: 'pointer', fontFamily: 'inherit',
                 fontSize: 14, fontWeight: sectionActive ? 600 : 500,

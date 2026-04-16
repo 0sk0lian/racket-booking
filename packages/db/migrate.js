@@ -11,7 +11,15 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 async function migrate() {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  // Prefer DATABASE_URL_DIRECT (port 5432, session mode) when available.
+  // Supabase's transaction pooler (port 6543) is fine for app code but
+  // rejects some DDL — always run migrations against the direct connection.
+  const connectionString = process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL;
+  if (!connectionString) {
+    console.error('DATABASE_URL (or DATABASE_URL_DIRECT) is not set.');
+    process.exit(1);
+  }
+  const client = new Client({ connectionString });
   await client.connect();
 
   // Ensure migration tracking table exists
