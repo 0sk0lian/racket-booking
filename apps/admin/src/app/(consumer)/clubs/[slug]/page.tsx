@@ -59,6 +59,24 @@ export default function ClubDetailPage() {
         </div>
       </div>
 
+      {/* Navigation tabs */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', display: 'flex', gap: 4 }}>
+          {[
+            { href: `/clubs/${slug}`, label: 'Banor' },
+            { href: `/clubs/${slug}/trainings`, label: 'Träning' },
+            { href: `/clubs/${slug}/events`, label: 'Event' },
+            { href: `/clubs/${slug}/matches`, label: 'Matcher' },
+            { href: `/clubs/${slug}/book`, label: 'Boka tid' },
+            { href: `/clubs/${slug}/membership`, label: 'Bli medlem' },
+          ].map(tab => (
+            <Link key={tab.href} href={tab.href} style={{ padding: '14px 18px', fontSize: 14, fontWeight: 600, color: '#475569', textDecoration: 'none', borderBottom: '2px solid transparent', transition: 'all 0.15s' }}>
+              {tab.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 32, alignItems: 'start' }}>
           {/* Left: courts + description */}
