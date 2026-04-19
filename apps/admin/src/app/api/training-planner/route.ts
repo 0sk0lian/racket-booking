@@ -4,55 +4,68 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../lib/supabase/server';
+import { requireAdmin, requireClubAccess, scopeClubIdsForAdmin } from '../../../lib/auth/guards';
 
 const DAY_NAMES = ['Söndag', 'Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag'];
 
 async function enrichSessions(supabase: ReturnType<typeof createSupabaseAdminClient>, sessions: any[]) {
   const userIds = new Set<string>();
   const courtIds = new Set<string>();
-  sessions.forEach(s => {
-    if (s.trainer_id) userIds.add(s.trainer_id);
-    (s.player_ids ?? []).forEach((id: string) => userIds.add(id));
-    (s.going_ids ?? []).forEach((id: string) => userIds.add(id));
-    (s.declined_ids ?? []).forEach((id: string) => userIds.add(id));
-    (s.invited_ids ?? []).forEach((id: string) => userIds.add(id));
-    (s.waitlist_ids ?? []).forEach((id: string) => userIds.add(id));
-    if (s.court_id) courtIds.add(s.court_id);
+  sessions.forEach((session) => {
+    if (session.trainer_id) userIds.add(session.trainer_id);
+    (session.player_ids ?? []).forEach((id: string) => userIds.add(id));
+    (session.going_ids ?? []).forEach((id: string) => userIds.add(id));
+    (session.declined_ids ?? []).forEach((id: string) => userIds.add(id));
+    (session.invited_ids ?? []).forEach((id: string) => userIds.add(id));
+    (session.waitlist_ids ?? []).forEach((id: string) => userIds.add(id));
+    if (session.court_id) courtIds.add(session.court_id);
   });
 
   const [{ data: users }, { data: courts }] = await Promise.all([
     userIds.size > 0 ? supabase.from('users').select('id, full_name').in('id', Array.from(userIds)) : { data: [] as any[] },
     courtIds.size > 0 ? supabase.from('courts').select('id, name, sport_type').in('id', Array.from(courtIds)) : { data: [] as any[] },
   ]);
-  const userMap = new Map((users ?? []).map(u => [u.id, u]));
-  const courtMap = new Map((courts ?? []).map(c => [c.id, c]));
+  const userMap = new Map((users ?? []).map((user) => [user.id, user]));
+  const courtMap = new Map((courts ?? []).map((court) => [court.id, court]));
   const getName = (id: string) => userMap.get(id)?.full_name ?? '?';
-  const mapNames = (ids: string[]) => (ids ?? []).map(id => ({ id, name: getName(id) }));
+  const mapNames = (ids: string[]) => (ids ?? []).map((id) => ({ id, name: getName(id) }));
 
-  return sessions.map(s => {
-    const court = courtMap.get(s.court_id);
+  return sessions.map((session) => {
+    const court = courtMap.get(session.court_id);
     return {
-      ...s,
+      ...session,
       court_name: court?.name ?? '?',
       sport_type: court?.sport_type ?? 'padel',
-      trainer_name: getName(s.trainer_id),
-      day_name: DAY_NAMES[s.day_of_week],
-      players: mapNames(s.player_ids ?? []),
-      going: mapNames(s.going_ids ?? []),
-      declined: mapNames(s.declined_ids ?? []),
-      invited: mapNames(s.invited_ids ?? []),
-      waitlist: mapNames(s.waitlist_ids ?? []),
+      trainer_name: getName(session.trainer_id),
+      day_name: DAY_NAMES[session.day_of_week],
+      players: mapNames(session.player_ids ?? []),
+      going: mapNames(session.going_ids ?? []),
+      declined: mapNames(session.declined_ids ?? []),
+      invited: mapNames(session.invited_ids ?? []),
+      waitlist: mapNames(session.waitlist_ids ?? []),
     };
   });
 }
 
 export async function GET(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
   const clubId = request.nextUrl.searchParams.get('clubId');
   const status = request.nextUrl.searchParams.get('status');
-  const supabase = createSupabaseAdminClient();
+  if (clubId) {
+    const access = await requireClubAccess(clubId);
+    if (!access.ok) return access.response;
+  }
 
+  const scopedClubIds = clubId ? [clubId] : await scopeClubIdsForAdmin(admin);
+  if (scopedClubIds !== null && scopedClubIds.length === 0) {
+    return NextResponse.json({ success: true, data: [] });
+  }
+
+  const supabase = createSupabaseAdminClient();
   let query = supabase.from('training_sessions').select('*');
-  if (clubId) query = query.eq('club_id', clubId);
+  if (scopedClubIds !== null) query = query.in('club_id', scopedClubIds);
   if (status) query = query.eq('status', status);
   query = query.order('day_of_week').order('start_hour');
 
@@ -64,9 +77,15 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const supabase = createSupabaseAdminClient();
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
 
+  const body = await request.json();
+  if (!body?.clubId) return NextResponse.json({ success: false, error: 'clubId required' }, { status: 400 });
+  const access = await requireClubAccess(body.clubId);
+  if (!access.ok) return access.response;
+
+  const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase.from('training_sessions').insert({
     club_id: body.clubId,
     title: body.title ?? 'Träningspass',

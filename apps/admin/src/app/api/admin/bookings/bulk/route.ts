@@ -4,23 +4,47 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../lib/supabase/server';
+import { requireAdmin, requireClubAccess } from '../../../../../lib/auth/guards';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
-  const { slots, bookerId, bookingType, trainerId, playerIds, notes, eventName, eventMaxParticipants, repeatWeeks } = await request.json();
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
+  const { slots, bookerId, bookingType, trainerId, playerIds, notes, eventName, eventMaxParticipants, repeatWeeks, totalPrice } = await request.json();
   if (!slots?.length) return NextResponse.json({ success: false, error: 'slots array required' }, { status: 400 });
+  const requestedTotalPrice = typeof totalPrice === 'number' && Number.isFinite(totalPrice) ? totalPrice : null;
+  if (requestedTotalPrice !== null && requestedTotalPrice < 0) {
+    return NextResponse.json({ success: false, error: 'totalPrice must be >= 0' }, { status: 400 });
+  }
 
   const supabase = createSupabaseAdminClient();
   const results: any[] = [];
   const errors: any[] = [];
 
-  const weeksToCreate = bookingType === 'contract' ? Math.max(1, repeatWeeks || 4) : 1;
+  const uniqueCourtIds = [...new Set((slots ?? []).map((slot: any) => slot.courtId).filter(Boolean))];
+  const { data: courts } = uniqueCourtIds.length > 0
+    ? await supabase.from('courts').select('id, base_hourly_rate, club_id').in('id', uniqueCourtIds)
+    : { data: [] };
+  const courtMap = new Map((courts ?? []).map((court) => [court.id, court]));
+
+  for (const courtId of uniqueCourtIds) {
+    const court = courtMap.get(courtId);
+    if (!court) return NextResponse.json({ success: false, error: `Court not found: ${courtId}` }, { status: 404 });
+    const access = await requireClubAccess(court.club_id);
+    if (!access.ok) return access.response;
+  }
+
+  const weeksToCreate = bookingType === 'contract'
+    ? Math.max(1, repeatWeeks || 4)
+    : bookingType === 'training'
+      ? Math.max(1, repeatWeeks || 1)
+      : 1;
   const contractId = bookingType === 'contract' ? crypto.randomUUID() : null;
 
   for (let week = 0; week < weeksToCreate; week++) {
     for (const slot of slots) {
-      // Fetch court for pricing
-      const { data: court } = await supabase.from('courts').select('base_hourly_rate, club_id').eq('id', slot.courtId).single();
+      const court = courtMap.get(slot.courtId);
       if (!court) { errors.push({ ...slot, error: 'Court not found' }); continue; }
 
       let startTime = slot.startTime;
@@ -37,13 +61,13 @@ export async function POST(request: NextRequest) {
         if (trainer?.trainer_hourly_rate) totalPrice += trainer.trainer_hourly_rate * durationHours;
       }
       if (bookingType === 'event') totalPrice = 0;
+      if (requestedTotalPrice !== null) totalPrice = requestedTotalPrice;
 
-      // Generate a tsrange value for Postgres
       const timeSlot = `[${startTime},${endTime})`;
 
       const { data: booking, error } = await supabase.from('bookings').insert({
         court_id: slot.courtId,
-        booker_id: bookerId || null,
+        booker_id: bookerId || admin.user.id,
         time_slot: timeSlot,
         time_slot_start: startTime,
         time_slot_end: endTime,

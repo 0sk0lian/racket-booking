@@ -4,11 +4,14 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
+import { requireClubAccess } from '../../../../lib/auth/guards';
 
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
   const clubId = p.get('clubId');
   if (!clubId) return NextResponse.json({ success: false, error: 'clubId required' }, { status: 400 });
+  const access = await requireClubAccess(clubId);
+  if (!access.ok) return access.response;
 
   const now = new Date();
   const from = p.get('from') ?? new Date(now.getTime() - 28 * 86400000).toISOString().split('T')[0];

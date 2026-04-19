@@ -4,11 +4,17 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
+import { requireClubAccess } from '../../../../lib/auth/guards';
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await request.json();
   const supabase = createSupabaseAdminClient();
+
+  const { data: session } = await supabase.from('training_sessions').select('id, club_id').eq('id', id).single();
+  if (!session) return NextResponse.json({ success: false, error: 'Training session not found' }, { status: 404 });
+  const access = await requireClubAccess(session.club_id);
+  if (!access.ok) return access.response;
 
   const updates: Record<string, unknown> = {};
   if (body.title !== undefined) updates.title = body.title;
@@ -39,6 +45,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = createSupabaseAdminClient();
+
+  const { data: session } = await supabase.from('training_sessions').select('id, club_id').eq('id', id).single();
+  if (!session) return NextResponse.json({ success: false, error: 'Training session not found' }, { status: 404 });
+  const access = await requireClubAccess(session.club_id);
+  if (!access.ok) return access.response;
 
   const { error } = await supabase
     .from('training_sessions')

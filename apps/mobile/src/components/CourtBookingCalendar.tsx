@@ -4,6 +4,7 @@ import { Calendar, DateData } from 'react-native-calendars';
 import { fetchAvailableSlots } from '../api/bookingApi';
 
 interface Props {
+  clubId: string;
   courtId: string;
   onDayPress: (dateString: string) => void;
 }
@@ -14,7 +15,7 @@ interface Props {
  *
  * Reference: docs/ARCHITECTURE.md → "Frontend Architecture: Mobile Player Application"
  */
-export const CourtBookingCalendar: React.FC<Props> = ({ courtId, onDayPress }) => {
+export const CourtBookingCalendar: React.FC<Props> = ({ clubId, courtId, onDayPress }) => {
   const [markedDates, setMarkedDates] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
 
@@ -30,11 +31,10 @@ export const CourtBookingCalendar: React.FC<Props> = ({ courtId, onDayPress }) =
           date.setDate(date.getDate() + i);
           const dateString = date.toISOString().split('T')[0];
 
-          const result = await fetchAvailableSlots(courtId, dateString);
-          const slots = result.data || [];
+          const result = await fetchAvailableSlots(clubId, courtId, dateString);
+          const slots = result.data?.slots ?? [];
 
-          // Simple heuristic: if 10+ hours are booked, mark as fully booked
-          if (slots.length >= 10) {
+          if (slots.length === 0) {
             formattedDates[dateString] = {
               disabled: true,
               disableTouchEvent: true,
@@ -58,7 +58,7 @@ export const CourtBookingCalendar: React.FC<Props> = ({ courtId, onDayPress }) =
     };
 
     loadAvailability();
-  }, [courtId]);
+  }, [clubId, courtId]);
 
   if (loading) {
     return (

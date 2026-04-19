@@ -1,12 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../lib/supabase/server';
+import { getRequestUser, getUserRole, getManagedClubIds } from '../../../lib/auth/guards';
 
 export async function GET(request: NextRequest) {
   const clubId = request.nextUrl.searchParams.get('clubId');
   const supabase = createSupabaseAdminClient();
 
+  const requestUser = await getRequestUser();
+  let scopedClubIds: string[] | null = null;
+  if (requestUser) {
+    const role = await getUserRole(requestUser.id);
+    if (role === 'admin') {
+      scopedClubIds = await getManagedClubIds(requestUser.id);
+    }
+  }
+
   let query = supabase.from('courts').select('*').eq('is_active', true).order('name');
-  if (clubId) query = query.eq('club_id', clubId);
+  if (clubId) {
+    if (scopedClubIds !== null && !scopedClubIds.includes(clubId)) {
+      return NextResponse.json({ success: false, error: 'You do not have access to this venue' }, { status: 403 });
+    }
+    query = query.eq('club_id', clubId);
+  } else if (scopedClubIds !== null) {
+    if (scopedClubIds.length === 0) return NextResponse.json({ success: true, data: [] });
+    query = query.in('club_id', scopedClubIds);
+  }
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });

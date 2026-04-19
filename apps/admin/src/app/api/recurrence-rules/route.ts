@@ -4,12 +4,26 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../lib/supabase/server';
+import { requireAdmin, requireClubAccess, scopeClubIdsForAdmin } from '../../../lib/auth/guards';
 
 export async function GET(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
   const p = request.nextUrl.searchParams;
+  const clubId = p.get('clubId');
+  if (clubId) {
+    const access = await requireClubAccess(clubId);
+    if (!access.ok) return access.response;
+  }
+  const scopedClubIds = clubId ? [clubId] : await scopeClubIdsForAdmin(admin);
+  if (scopedClubIds !== null && scopedClubIds.length === 0) {
+    return NextResponse.json({ success: true, data: [] });
+  }
+
   const supabase = createSupabaseAdminClient();
   let query = supabase.from('recurrence_rules').select('*');
-  if (p.get('clubId')) query = query.eq('club_id', p.get('clubId'));
+  if (scopedClubIds !== null) query = query.in('club_id', scopedClubIds);
   if (p.get('type')) query = query.eq('booking_type', p.get('type'));
   if (p.get('active') === 'true') query = query.eq('is_active', true);
   const { data, error } = await query.order('title');
@@ -18,7 +32,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
   const b = await request.json();
+  if (!b?.clubId) return NextResponse.json({ success: false, error: 'clubId required' }, { status: 400 });
+  const access = await requireClubAccess(b.clubId);
+  if (!access.ok) return access.response;
+
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase.from('recurrence_rules').insert({
     club_id: b.clubId, title: b.title, booking_type: b.bookingType ?? 'training',

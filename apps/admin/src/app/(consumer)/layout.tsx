@@ -1,23 +1,31 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { useEffect, useState } from 'react';
 
 export default function ConsumerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [user, setUser] = useState<{ email: string; full_name?: string } | null>(null);
+  const [user, setUser] = useState<{ email: string; full_name?: string; role?: string } | null>(null);
 
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
+    fetch('/api/users/me')
+      .then(async (r) => {
+        if (!r.ok) return null;
+        const body = await r.json();
+        return body?.data ?? null;
+      })
+      .then((profile) => {
+        if (!profile) {
+          setUser(null);
+          return;
+        }
         setUser({
-          email: data.user.email ?? '',
-          full_name: data.user.user_metadata?.full_name,
+          email: profile.email ?? '',
+          full_name: profile.full_name ?? undefined,
+          role: profile.role ?? undefined,
         });
-      }
-    });
+      })
+      .catch(() => setUser(null));
   }, []);
 
   return (
@@ -45,7 +53,7 @@ export default function ConsumerLayout({ children }: { children: React.ReactNode
             {user ? (
               <>
                 <span style={{ fontSize: 13, color: '#64748b' }}>{user.full_name ?? user.email}</span>
-                <Link href="/dashboard" style={btnOutline}>Admin</Link>
+                {(user.role === 'admin' || user.role === 'superadmin') && <Link href="/dashboard" style={btnOutline}>Admin</Link>}
                 <form action="/auth/signout" method="POST">
                   <button type="submit" style={btnOutline}>Logga ut</button>
                 </form>

@@ -4,13 +4,26 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../lib/supabase/server';
+import { requireAdmin, requireClubAccess, scopeClubIdsForAdmin } from '../../../lib/auth/guards';
 
 export async function GET(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
   const clubId = request.nextUrl.searchParams.get('clubId');
+  if (clubId) {
+    const access = await requireClubAccess(clubId);
+    if (!access.ok) return access.response;
+  }
+  const scopedClubIds = clubId ? [clubId] : await scopeClubIdsForAdmin(admin);
+  if (scopedClubIds !== null && scopedClubIds.length === 0) {
+    return NextResponse.json({ success: true, data: [] });
+  }
+
   const supabase = createSupabaseAdminClient();
 
   let query = supabase.from('blackout_periods').select('*');
-  if (clubId) query = query.eq('club_id', clubId);
+  if (scopedClubIds !== null) query = query.in('club_id', scopedClubIds);
   query = query.order('starts_at');
 
   const { data, error } = await query;
@@ -35,10 +48,15 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
   const body = await request.json();
   if (!body.clubId || !body.startsAt || !body.endsAt) {
     return NextResponse.json({ success: false, error: 'clubId, startsAt, endsAt required' }, { status: 400 });
   }
+  const access = await requireClubAccess(body.clubId);
+  if (!access.ok) return access.response;
 
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase.from('blackout_periods').insert({

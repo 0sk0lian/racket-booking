@@ -4,14 +4,19 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../../lib/supabase/server';
+import { requireClubAccess } from '../../../../../../lib/auth/guards';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: courseId } = await params;
   const supabase = createSupabaseAdminClient();
 
   // Get course + sessions
-  const { data: course } = await supabase.from('courses').select('name').eq('id', courseId).single();
+  const { data: course } = await supabase.from('courses').select('name, club_id').eq('id', courseId).single();
   if (!course) return NextResponse.json({ success: false, error: 'Course not found' }, { status: 404 });
+  if (course.club_id) {
+    const access = await requireClubAccess(course.club_id);
+    if (!access.ok) return access.response;
+  }
 
   const { data: sessions } = await supabase.from('course_sessions').select('id, date, status, booking_id')
     .eq('course_id', courseId).order('date');

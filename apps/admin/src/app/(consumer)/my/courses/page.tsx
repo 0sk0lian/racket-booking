@@ -19,21 +19,13 @@ export default function MyCoursesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get all courses the user is registered for
-    // For now: fetch all courses and check registrations via the API
-    // Ideally: a dedicated /api/users/me/courses endpoint
-    fetch('/api/courses').then(r => r.json()).then(async (r) => {
-      const allCourses = r.data ?? [];
-      // Check each course for the user's registration
-      const withRegs: any[] = [];
-      for (const c of allCourses) {
-        const regRes = await fetch(`/api/courses/${c.id}/registrations`).then(r => r.json());
-        const myReg = (regRes.data ?? []).find((reg: any) => true); // TODO: filter by current user
-        if (myReg) withRegs.push({ ...myReg, course: c });
-      }
-      setCourses(withRegs);
-      setLoading(false);
-    });
+    fetch('/api/users/me/courses')
+      .then(r => r.json())
+      .then(r => {
+        setCourses(r.data ?? []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   return (

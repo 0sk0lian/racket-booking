@@ -44,7 +44,8 @@ export interface BookingModalProps {
     eventName: string | null;
     eventMaxParticipants: number | null;
     eventAttendeeIds: string[];
-    repeatWeeks?: number; // contract only, create mode
+    totalPrice?: number | null;
+    repeatWeeks?: number; // recurring create mode (contract/training)
   }) => Promise<void> | void;
   onCancel: () => void;
   onDelete?: () => Promise<void> | void;
@@ -69,6 +70,7 @@ export interface BookingModalProps {
   initialNotes?: string;
   initialEventName?: string;
   initialEventMax?: string;
+  initialTotalPrice?: number | null;
   initialRepeatWeeks?: number;
 
   /** Edit-mode only: the booking id, used by AttendanceBoard for RSVP/check-in. */
@@ -90,6 +92,7 @@ export function BookingModal(props: BookingModalProps) {
     initialNotes = '',
     initialEventName = '',
     initialEventMax = '8',
+    initialTotalPrice = null,
     initialRepeatWeeks = 4,
     bookingId,
     checkedInBy,
@@ -104,6 +107,7 @@ export function BookingModal(props: BookingModalProps) {
   const [notes, setNotes] = useState(initialNotes);
   const [eventName, setEventName] = useState(initialEventName);
   const [eventMax, setEventMax] = useState(initialEventMax);
+  const [eventPrice, setEventPrice] = useState(initialTotalPrice !== null ? String(initialTotalPrice) : '');
   const [repeatWeeks, setRepeatWeeks] = useState(String(initialRepeatWeeks));
 
   useEffect(() => { if (mode === 'edit') setType(initialType); }, [mode, initialType]);
@@ -120,7 +124,8 @@ export function BookingModal(props: BookingModalProps) {
     eventName: type === 'event' ? eventName : null,
     eventMaxParticipants: type === 'event' ? (Number(eventMax) || null) : null,
     eventAttendeeIds: type === 'event' ? attendeeIds : [],
-    repeatWeeks: mode === 'create' && type === 'contract' ? (Number(repeatWeeks) || 4) : undefined,
+    totalPrice: type === 'event' ? (eventPrice.trim() ? Number(eventPrice) : null) : undefined,
+    repeatWeeks: mode === 'create' && (type === 'contract' || type === 'training') ? (Number(repeatWeeks) || 4) : undefined,
   });
 
   return (
@@ -184,14 +189,12 @@ export function BookingModal(props: BookingModalProps) {
               </select>
             </Field>
           )}
-          {type !== 'event' && (
-            <Field label="Booker">
-              <select value={bookerId} onChange={e => setBookerId(e.target.value)} style={inp}>
-                <option value="">— Admin —</option>
-                {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-              </select>
-            </Field>
-          )}
+          <Field label={type === 'event' ? 'In charge' : 'Booker'}>
+            <select value={bookerId} onChange={e => setBookerId(e.target.value)} style={inp}>
+              <option value="">— Admin —</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+            </select>
+          </Field>
           {type === 'training' && (
             <Field label="Trainer">
               <select value={trainerId} onChange={e => setTrainerId(e.target.value)} style={inp}>
@@ -200,8 +203,8 @@ export function BookingModal(props: BookingModalProps) {
               </select>
             </Field>
           )}
-          {type === 'contract' && mode === 'create' && (
-            <Field label="Repeat for (weeks)">
+          {(type === 'contract' || type === 'training') && mode === 'create' && (
+            <Field label="Weeks repeated">
               <input type="number" min={1} max={52} value={repeatWeeks} onChange={e => setRepeatWeeks(e.target.value)} style={inp} />
             </Field>
           )}
@@ -212,6 +215,9 @@ export function BookingModal(props: BookingModalProps) {
               </Field>
               <Field label="Max participants">
                 <input type="number" min={2} max={64} value={eventMax} onChange={e => setEventMax(e.target.value)} style={inp} />
+              </Field>
+              <Field label="Pricing (SEK)">
+                <input type="number" min={0} value={eventPrice} onChange={e => setEventPrice(e.target.value)} style={inp} placeholder="0" />
               </Field>
             </>
           )}

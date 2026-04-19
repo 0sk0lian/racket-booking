@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 interface Membership { id: string; club_id: string; status: string; membership_type: string; applied_at: string; approved_at: string | null; }
-interface Club { id: string; name: string; city: string | null; }
 
 const STATUS: Record<string, { label: string; bg: string; color: string }> = {
   pending: { label: 'Väntar', bg: '#fef3c7', color: '#b45309' },
@@ -17,20 +16,13 @@ export default function MyMembershipsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/clubs').then(r => r.json()),
-    ]).then(async ([clubsRes]) => {
-      const clubs: Club[] = clubsRes.data ?? [];
-      const allMemberships: any[] = [];
-      for (const club of clubs) {
-        const res = await fetch(`/api/clubs/${club.id}/membership`).then(r => r.json());
-        if (res.data && res.data.status !== 'none') {
-          allMemberships.push({ ...res.data, club_name: club.name, club_city: club.city });
-        }
-      }
-      setMemberships(allMemberships);
-      setLoading(false);
-    });
+    fetch('/api/users/me/memberships')
+      .then(r => r.json())
+      .then(r => {
+        setMemberships(r.data ?? []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   return (

@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../../lib/supabase/server';
+import { requireClubAccess } from '../../../../../../lib/auth/guards';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: trainerId } = await params;
@@ -15,9 +16,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const supabase = createSupabaseAdminClient();
 
   // Trainer profile
-  const { data: trainer } = await supabase.from('users').select('id, full_name, email, trainer_sport_types, trainer_hourly_rate, trainer_monthly_salary')
+  const { data: trainer } = await supabase.from('users').select('id, full_name, email, trainer_club_id, trainer_sport_types, trainer_hourly_rate, trainer_monthly_salary')
     .eq('id', trainerId).single();
   if (!trainer) return NextResponse.json({ success: false, error: 'Trainer not found' }, { status: 404 });
+
+  const trainerClubId = trainer?.trainer_club_id as string | null;
+  if (trainerClubId) {
+    const access = await requireClubAccess(trainerClubId);
+    if (!access.ok) return access.response;
+  }
 
   // Bookings where this trainer is assigned
   const { data: bookings } = await supabase.from('bookings')

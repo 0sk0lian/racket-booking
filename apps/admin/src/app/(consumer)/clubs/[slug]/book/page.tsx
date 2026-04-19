@@ -40,7 +40,7 @@ export default function BookingPage() {
   const handleConfirm = async () => {
     if (!selected) return;
     setConfirming(true); setError('');
-    const res = await fetch('/api/bookings/create', {
+    const response = await fetch('/api/bookings/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -48,10 +48,19 @@ export default function BookingPage() {
         startTime: selected.start_iso,
         endTime: selected.end_iso,
       }),
-    }).then(r => r.json());
+    });
+    const res = await response.json().catch(() => ({}));
 
     if (res.success) {
       router.push(`/my/bookings?booked=${res.data.id}`);
+      return;
+    }
+
+    if (response.status === 401) {
+      setConfirming(false);
+      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      router.push(`/login?next=${next}`);
+      return;
     } else {
       setError(res.error ?? 'Booking failed');
       setConfirming(false);
@@ -187,7 +196,7 @@ export default function BookingPage() {
                   {confirming ? 'Bokar...' : 'Bekräfta bokning'}
                 </button>
                 <p style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center', marginTop: 8 }}>
-                  Betalning via Stripe kommer i nästa version
+                  Bokningen bekräftas direkt. Onlinebetalning kommer i nästa version.
                 </p>
               </div>
             </div>

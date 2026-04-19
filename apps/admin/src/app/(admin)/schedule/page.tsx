@@ -300,8 +300,13 @@ function SchedulePageInner() {
         bookingType: payload.bookingType,
         bookerId: payload.bookerId || undefined,
         notes: payload.notes,
+        totalPrice: payload.totalPrice ?? undefined,
       };
-      if (payload.bookingType === 'training') { body.trainerId = payload.trainerId; body.playerIds = payload.playerIds; }
+      if (payload.bookingType === 'training') {
+        body.trainerId = payload.trainerId;
+        body.playerIds = payload.playerIds;
+        body.repeatWeeks = payload.repeatWeeks ?? 1;
+      }
       if (payload.bookingType === 'contract') { body.repeatWeeks = payload.repeatWeeks ?? 4; }
       if (payload.bookingType === 'event') { body.eventName = payload.eventName; body.eventMaxParticipants = payload.eventMaxParticipants; }
 
@@ -322,6 +327,7 @@ function SchedulePageInner() {
       bookingType: payload.bookingType,
       bookerId: payload.bookerId,
       notes: payload.notes,
+      totalPrice: payload.totalPrice ?? undefined,
     };
     if (payload.bookingType === 'training') { body.trainerId = payload.trainerId; body.playerIds = payload.playerIds; }
     if (payload.bookingType === 'event') {
@@ -468,6 +474,7 @@ function SchedulePageInner() {
           initialNotes={editing.notes ?? ''}
           initialEventName={editing.eventName ?? ''}
           initialEventMax={String(editing.eventMaxParticipants ?? '')}
+          initialTotalPrice={editing.totalPrice}
           bookingId={editing.id}
           onSave={handleEditSave}
           onDelete={handleEditDelete}

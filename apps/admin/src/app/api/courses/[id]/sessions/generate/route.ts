@@ -5,17 +5,23 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../../lib/supabase/server';
+import { requireAdmin, requireClubAccess } from '../../../../../../lib/auth/guards';
 
 function toDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
   const { id: courseId } = await params;
   const supabase = createSupabaseAdminClient();
 
   const { data: course } = await supabase.from('courses').select('*').eq('id', courseId).single();
   if (!course) return NextResponse.json({ success: false, error: 'Course not found' }, { status: 404 });
+  const access = await requireClubAccess(course.club_id);
+  if (!access.ok) return access.response;
 
   // Get existing sessions to avoid duplicates
   const { data: existing } = await supabase.from('course_sessions').select('date').eq('course_id', courseId);

@@ -34,7 +34,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   // Only the booker or an admin can cancel
   if (booking.booker_id !== user.id) {
     const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
-    if (profile?.role !== 'admin') {
+    if (profile?.role !== 'admin' && profile?.role !== 'superadmin') {
       return NextResponse.json({ success: false, error: 'Not authorized' }, { status: 403 });
     }
   }

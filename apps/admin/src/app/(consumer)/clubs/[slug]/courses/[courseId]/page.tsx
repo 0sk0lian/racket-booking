@@ -8,6 +8,10 @@ const DAY_NAMES = ['Söndag', 'Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'
 interface Course { id: string; name: string; description: string | null; sport_type: string; category: string; court_name: string; trainer_name: string | null; day_of_week: number; start_hour: number; end_hour: number; term_start: string; term_end: string; max_participants: number | null; price_total: number | null; price_per_session: number | null; registration_status: string; }
 interface Session { id: string; date: string; start_hour: number; end_hour: number; status: string; }
 
+function toDateStr(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 export default function CourseDetailConsumer() {
   const { slug, courseId } = useParams<{ slug: string; courseId: string }>();
   const [course, setCourse] = useState<Course | null>(null);
@@ -21,21 +25,30 @@ export default function CourseDetailConsumer() {
     Promise.all([
       fetch(`/api/courses/${courseId}`).then(r => r.json()),
       fetch(`/api/courses/${courseId}/sessions`).then(r => r.json()),
-    ]).then(([c, s]) => {
+      fetch(`/api/courses/${courseId}/registrations?mine=true`).then(r => r.json()),
+    ]).then(([c, s, regs]) => {
       setCourse(c.data ?? null);
       setSessions((s.data ?? []).filter((x: Session) => x.status === 'scheduled'));
+      const myReg = (regs?.data ?? []);
+      if (Array.isArray(myReg) && myReg.length > 0) {
+        setRegStatus(myReg[0].status ?? 'none');
+      } else {
+        setRegStatus('none');
+      }
       setLoading(false);
-    });
-    // Check registration status
-    fetch(`/api/courses/${courseId}/registrations`).then(r => r.json()).then(r => {
-      // Find current user's registration (the API returns all for admins, but for consumers it should be filtered — for now check all)
-      // The register endpoint will tell us if already registered
     });
   }, [courseId]);
 
   const register = async () => {
     setRegistering(true);
-    const res = await fetch(`/api/courses/${courseId}/register`, { method: 'POST' }).then(r => r.json());
+    const response = await fetch(`/api/courses/${courseId}/register`, { method: 'POST' });
+    const res = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      setRegistering(false);
+      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/login?next=${next}`;
+      return;
+    }
     if (res.success) {
       setRegStatus(res.data.status);
       setToast(res.data.status === 'waitlisted' ? 'Du står på väntelistan' : 'Anmälan skickad!');
@@ -49,7 +62,7 @@ export default function CourseDetailConsumer() {
   if (loading) return <div style={{ padding: 40, color: '#94a3b8' }}>Laddar...</div>;
   if (!course) return <div style={{ padding: 40 }}><h2>Kurs hittades inte</h2></div>;
 
-  const upcoming = sessions.filter(s => s.date >= new Date().toISOString().split('T')[0]).slice(0, 8);
+  const upcoming = sessions.filter(s => s.date >= toDateStr(new Date())).slice(0, 8);
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '32px 24px' }}>

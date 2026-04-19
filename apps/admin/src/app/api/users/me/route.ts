@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../../lib/supabase/server';
+import { getManagedClubIds } from '../../../../lib/auth/guards';
 
 export async function GET() {
   const userSupabase = await createSupabaseServerClient();
@@ -13,7 +14,20 @@ export async function GET() {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase.from('users').select('*').eq('id', user.id).single();
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ success: true, data });
+
+  let managedClubIds: string[] = [];
+  if (data?.role === 'admin') {
+    managedClubIds = await getManagedClubIds(user.id);
+  }
+
+  return NextResponse.json({
+    success: true,
+    data: {
+      ...data,
+      managed_club_ids: managedClubIds,
+      is_superadmin: data?.role === 'superadmin',
+    },
+  });
 }
 
 export async function PATCH(request: NextRequest) {

@@ -24,6 +24,8 @@ export default function CourseDetailPage() {
   const [tab, setTab] = useState<Tab>('overview');
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
+  const [syncingPlanner, setSyncingPlanner] = useState(false);
+  const [billingBusy, setBillingBusy] = useState(false);
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(''), 4000); };
 
   const load = async () => {
@@ -54,6 +56,29 @@ export default function CourseDetailPage() {
     else flash(res.error ?? 'Fel');
   };
 
+  const syncApprovedToPlanner = async () => {
+    setSyncingPlanner(true);
+    const res = await fetch(`${API}/courses/${id}/sync-planner`, { method: 'POST' }).then((r) => r.json());
+    setSyncingPlanner(false);
+    if (!res.success) return flash(res.error ?? 'Could not sync to planner');
+    flash(res.data.created
+      ? `Synced: ${res.data.totalPlayers} players placed in planner`
+      : `Updated planner template (+${res.data.addedPlayers} players, ${res.data.totalPlayers} total)`);
+  };
+
+  const setPaymentStatus = async (ids: string[], paymentStatus: 'unpaid' | 'paid' | 'refunded') => {
+    if (ids.length === 0) return;
+    setBillingBusy(true);
+    await fetch(`${API}/courses/${id}/registrations`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, paymentStatus }),
+    });
+    setBillingBusy(false);
+    flash(paymentStatus === 'paid' ? `${ids.length} markerade som betalda` : `${ids.length} markerade som ${paymentStatus}`);
+    load();
+  };
+
   const updateStatus = async (status: string) => {
     await fetch(`${API}/courses/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -77,6 +102,8 @@ export default function CourseDetailPage() {
 
   const pending = registrations.filter(r => r.status === 'pending');
   const approved = registrations.filter(r => r.status === 'approved');
+  const approvedUnpaid = approved.filter((r) => r.payment_status !== 'paid');
+  const estimatedToBill = (course.price_total ?? 0) * approvedUnpaid.length;
 
   return (
     <div>
@@ -86,6 +113,9 @@ export default function CourseDetailPage() {
           <h1 style={{ marginTop: 4 }}>{course.name}</h1>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-outline" onClick={syncApprovedToPlanner} disabled={syncingPlanner}>
+            {syncingPlanner ? 'Synkar...' : 'Placera i träningsplanerare'}
+          </button>
           {course.status === 'draft' && <button className="btn btn-primary" onClick={() => updateStatus('active')}>Aktivera</button>}
           {course.status === 'active' && <button className="btn btn-outline" onClick={() => updateStatus('completed')}>Avsluta</button>}
           {course.registration_status !== 'open' && <button className="btn btn-outline" onClick={() => updateRegStatus('open')}>Öppna registrering</button>}
@@ -118,6 +148,7 @@ export default function CourseDetailPage() {
           <InfoCard label="Termin" value={`${course.term_start} → ${course.term_end}`} />
           <InfoCard label="Deltagare" value={`${approved.length}/${course.max_participants ?? '∞'}`} />
           <InfoCard label="Pris" value={course.price_total ? `${course.price_total} SEK` : 'Gratis'} />
+          <InfoCard label="Att fakturera" value={estimatedToBill > 0 ? `${estimatedToBill} SEK` : '-'} />
           <InfoCard label="Sport" value={course.sport_type} />
           <InfoCard label="Kategori" value={course.category} />
           {course.description && <div style={{ gridColumn: 'span 2', padding: 16, background: 'var(--bg-body)', borderRadius: 10, fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6 }}>{course.description}</div>}
@@ -138,9 +169,32 @@ export default function CourseDetailPage() {
               ))}
             </div>
           )}
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Godkända ({approved.length})</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 10, flexWrap: 'wrap' }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700 }}>Godkända ({approved.length})</h3>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                Obetalda: {approvedUnpaid.length} {estimatedToBill > 0 ? `(${estimatedToBill} SEK)` : ''}
+              </span>
+              <button
+                className="btn btn-outline"
+                onClick={() => setPaymentStatus(approvedUnpaid.map((row) => row.id), 'paid')}
+                disabled={billingBusy || approvedUnpaid.length === 0}
+                style={{ padding: '6px 14px', fontSize: 12 }}
+              >
+                {billingBusy ? 'Uppdaterar...' : 'Markera alla som betalda'}
+              </button>
+            </div>
+          </div>
           {approved.length === 0 ? <p style={{ color: 'var(--text-dim)', fontSize: 13 }}>Inga godkända deltagare ännu.</p> :
-            approved.map(r => <RegRow key={r.id} reg={r} approved />)}
+            approved.map(r => (
+              <RegRow
+                key={r.id}
+                reg={r}
+                approved
+                onMarkPaid={r.payment_status !== 'paid' ? () => setPaymentStatus([r.id], 'paid') : undefined}
+                onMarkUnpaid={r.payment_status === 'paid' ? () => setPaymentStatus([r.id], 'unpaid') : undefined}
+              />
+            ))}
           {registrations.filter(r => r.status === 'waitlisted').length > 0 && (
             <>
               <h3 style={{ fontSize: 15, fontWeight: 700, marginTop: 20, marginBottom: 10 }}>Väntelista</h3>
@@ -192,7 +246,21 @@ function InfoCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function RegRow({ reg: r, onApprove, onReject, approved }: { reg: any; onApprove?: () => void; onReject?: () => void; approved?: boolean }) {
+function RegRow({
+  reg: r,
+  onApprove,
+  onReject,
+  approved,
+  onMarkPaid,
+  onMarkUnpaid,
+}: {
+  reg: any;
+  onApprove?: () => void;
+  onReject?: () => void;
+  approved?: boolean;
+  onMarkPaid?: () => void;
+  onMarkUnpaid?: () => void;
+}) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 16px', marginBottom: 6 }}>
       <div>
@@ -200,11 +268,16 @@ function RegRow({ reg: r, onApprove, onReject, approved }: { reg: any; onApprove
         <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>{r.user_email}</span>
         {r.user_phone && <span style={{ fontSize: 12, color: 'var(--text-dim)', marginLeft: 8 }}>{r.user_phone}</span>}
         <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>{new Date(r.applied_at).toLocaleDateString('sv-SE')}</span>
+        <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 700, background: r.payment_status === 'paid' ? '#ecfdf5' : '#fef3c7', color: r.payment_status === 'paid' ? '#059669' : '#b45309' }}>
+          {r.payment_status}
+        </span>
       </div>
       <div style={{ display: 'flex', gap: 6 }}>
         {!approved && onApprove && <button onClick={onApprove} style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, border: '1px solid #a7f3d0', background: '#ecfdf5', color: '#059669', cursor: 'pointer', fontFamily: 'inherit' }}>Godkänn</button>}
         {!approved && onReject && <button onClick={onReject} style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit' }}>Avvisa</button>}
         {approved && <span style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#ecfdf5', color: '#059669' }}>✓ Godkänd</span>}
+        {approved && onMarkPaid && <button onClick={onMarkPaid} style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, border: '1px solid #a7f3d0', background: '#ecfdf5', color: '#059669', cursor: 'pointer', fontFamily: 'inherit' }}>Markera betald</button>}
+        {approved && onMarkUnpaid && <button onClick={onMarkUnpaid} style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, border: '1px solid #fde68a', background: '#fefce8', color: '#a16207', cursor: 'pointer', fontFamily: 'inherit' }}>Markera obetald</button>}
       </div>
     </div>
   );

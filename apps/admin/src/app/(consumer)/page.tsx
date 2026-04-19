@@ -42,7 +42,7 @@ export default function LandingPage() {
             </span>
           </h1>
           <p style={{ fontSize: 18, color: '#64748b', maxWidth: 520, lineHeight: 1.6, marginBottom: 32 }}>
-            Hitta lediga tider, boka bana, bjud in vänner och betala — allt på ett ställe.
+            Hitta lediga tider, boka bana och bjud in vänner — allt på ett ställe.
             Sveriges smartaste bokningsplattform för racketsporter.
           </p>
           <div style={{ display: 'flex', gap: 12 }}>
@@ -58,7 +58,7 @@ export default function LandingPage() {
           <h2 style={sectionTitle}>Så fungerar det</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
             <StepCard step="1" title="Välj anläggning" desc="Hitta en padel- eller tennishall nära dig med lediga tider." />
-            <StepCard step="2" title="Boka tid" desc="Välj bana, datum och tid som passar. Betala direkt eller dela kostnaden." />
+            <StepCard step="2" title="Boka tid" desc="Välj bana, datum och tid som passar. Bokningen bekräftas direkt." />
             <StepCard step="3" title="Spela!" desc="Få PIN-kod och tillgång till banan. Vi sköter resten." />
           </div>
         </div>

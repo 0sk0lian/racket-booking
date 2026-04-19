@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
+import { requireClubAccess } from '../../../../lib/auth/guards';
 
 export async function GET(request: NextRequest) {
   const clubId = request.nextUrl.searchParams.get('clubId');
@@ -11,6 +12,8 @@ export async function GET(request: NextRequest) {
   if (!clubId || !date) {
     return NextResponse.json({ success: false, error: 'clubId and date required' }, { status: 400 });
   }
+  const access = await requireClubAccess(clubId);
+  if (!access.ok) return access.response;
 
   const supabase = createSupabaseAdminClient();
 

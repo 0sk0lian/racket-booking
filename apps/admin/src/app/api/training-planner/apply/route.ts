@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
+import { requireClubAccess } from '../../../../lib/auth/guards';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -11,6 +12,8 @@ export async function POST(request: NextRequest) {
   if (!clubId || !startDate || !endDate) {
     return NextResponse.json({ success: false, error: 'clubId, startDate, endDate required' }, { status: 400 });
   }
+  const access = await requireClubAccess(clubId);
+  if (!access.ok) return access.response;
 
   const supabase = createSupabaseAdminClient();
 
