@@ -172,6 +172,80 @@ export async function onMembershipApproved(membership: {
 }
 
 // ---------------------------------------------------------------------------
+// Course → Training Planner auto-sync
+// ---------------------------------------------------------------------------
+
+/**
+ * Called when course registrations are approved.
+ * Auto-creates or updates a training session template in the planner
+ * so approved students appear in the weekly schedule.
+ *
+ * Figma flow: Course → Apply form → Players placed in training planner
+ */
+export async function onCourseRegistrationsApproved(courseId: string) {
+  const supabase = createSupabaseAdminClient();
+
+  // 1. Fetch course details
+  const { data: course } = await supabase
+    .from('courses')
+    .select('id, club_id, name, court_id, trainer_id, day_of_week, start_hour, end_hour, category')
+    .eq('id', courseId)
+    .single();
+
+  if (!course || !course.court_id || course.day_of_week === null) return;
+
+  // 2. Get all approved student IDs
+  const { data: approved } = await supabase
+    .from('course_registrations')
+    .select('user_id')
+    .eq('course_id', courseId)
+    .eq('status', 'approved');
+
+  const studentIds = (approved ?? []).map(r => r.user_id);
+
+  // 3. Check if a training session template already exists for this course
+  const { data: existing } = await supabase
+    .from('training_sessions')
+    .select('id, player_ids')
+    .eq('club_id', course.club_id)
+    .eq('court_id', course.court_id)
+    .eq('day_of_week', course.day_of_week)
+    .eq('start_hour', course.start_hour)
+    .eq('end_hour', course.end_hour)
+    .eq('trainer_id', course.trainer_id)
+    .neq('status', 'cancelled')
+    .maybeSingle();
+
+  if (existing) {
+    // Update existing template with the latest approved players
+    const mergedIds = [...new Set([...(existing.player_ids ?? []), ...studentIds])];
+    await supabase
+      .from('training_sessions')
+      .update({
+        player_ids: mergedIds,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id);
+  } else {
+    // Create new training session template from the course
+    await supabase.from('training_sessions').insert({
+      club_id: course.club_id,
+      title: course.name,
+      court_id: course.court_id,
+      trainer_id: course.trainer_id,
+      player_ids: studentIds,
+      invited_ids: studentIds,
+      day_of_week: course.day_of_week,
+      start_hour: course.start_hour,
+      end_hour: course.end_hour,
+      group_id: null,
+      notes: `Auto-synced from course: ${course.name}`,
+      status: 'planned',
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Course sessions
 // ---------------------------------------------------------------------------
 

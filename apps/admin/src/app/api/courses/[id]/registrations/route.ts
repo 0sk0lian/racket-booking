@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../lib/supabase/server';
 import { getRequestUser, getUserRole, requireAdmin, requireClubAccess } from '../../../../../lib/auth/guards';
+import { onCourseRegistrationsApproved } from '../../../../../lib/cascades';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: courseId } = await params;
@@ -91,6 +92,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .update(updates).in('id', ids).eq('course_id', courseId).select();
 
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+
+  // Auto-sync approved students to the training planner
+  if (status === 'approved') {
+    onCourseRegistrationsApproved(courseId).catch(() => {});
+  }
 
   if (status === 'rejected') {
     const { data: course } = await supabase.from('courses').select('max_participants').eq('id', courseId).single();

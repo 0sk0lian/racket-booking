@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
 import { requireClubAccess } from '../../../../lib/auth/guards';
+import { onBookingCreated } from '../../../../lib/cascades';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -71,6 +72,17 @@ export async function POST(request: NextRequest) {
         }).eq('id', t.id);
         // Update local copy so next iteration sees it
         t.applied_dates = [...(t.applied_dates ?? []), dateStr];
+        // Auto-create attendance rows for players + trainer
+        if (booking) {
+          onBookingCreated({
+            id: booking.id,
+            court_id: t.court_id,
+            player_ids: t.player_ids ?? [],
+            trainer_id: t.trainer_id,
+            booker_id: t.trainer_id,
+            booking_type: 'training',
+          }).catch(() => {});
+        }
         results.push({ sessionTitle: t.title, date: dateStr, status: 'created', bookingId: booking?.id });
       }
     }
