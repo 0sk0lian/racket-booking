@@ -1,6 +1,7 @@
 /**
  * GET /api/admin/dashboard?clubId=
- * Aggregated stats for the admin dashboard: today's numbers, revenue, occupancy, pending actions.
+ * Aggregated stats for the admin dashboard: today's numbers, revenue, occupancy,
+ * pending actions, upcoming bookings, recent activity.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
@@ -21,14 +22,16 @@ export async function GET(request: NextRequest) {
   const twoWeeksAgo = new Date(now.getTime() - 14 * 86400000).toISOString().split('T')[0];
 
   // Get courts for this club
-  const { data: courts } = await supabase.from('courts').select('id').eq('club_id', clubId).eq('is_active', true);
+  const { data: courts } = await supabase.from('courts').select('id, name').eq('club_id', clubId).eq('is_active', true);
   const courtIds = (courts ?? []).map(c => c.id);
+  const courtMap = new Map((courts ?? []).map(c => [c.id, c.name]));
 
   // Today's bookings
   const { data: todayBookings } = courtIds.length > 0
-    ? await supabase.from('bookings').select('id, booking_type, total_price, status')
+    ? await supabase.from('bookings').select('id, booking_type, total_price, status, court_id, time_slot_start, time_slot_end, booker_id')
         .in('court_id', courtIds).neq('status', 'cancelled')
         .gte('time_slot_start', todayStart).lte('time_slot_start', todayEnd)
+        .order('time_slot_start')
     : { data: [] };
 
   const todayCount = (todayBookings ?? []).length;
@@ -57,15 +60,17 @@ export async function GET(request: NextRequest) {
   // Occupancy (today): booked hours / total available hours
   const openHours = 15; // 07:00-22:00
   const totalSlots = courtIds.length * openHours;
-  const bookedSlots = todayCount; // approximation: 1 booking ≈ 1 hour
+  const bookedSlots = todayCount; // approximation: 1 booking ~ 1 hour
   const occupancy = totalSlots > 0 ? Math.round((bookedSlots / totalSlots) * 100) : 0;
 
-  // Pending actions
+  // Pending memberships
   const { data: pendingMemberships } = await supabase.from('club_memberships')
     .select('id').eq('club_id', clubId).eq('status', 'pending');
+  const pendingMembershipsCount = pendingMemberships?.length ?? 0;
+
+  // Pending course registrations
   const { data: pendingCourseRegs } = await supabase.from('course_registrations')
     .select('id, course_id').eq('status', 'pending');
-  // Filter course regs to this club's courses
   const { data: clubCourses } = await supabase.from('courses').select('id').eq('club_id', clubId);
   const clubCourseIds = new Set((clubCourses ?? []).map(c => c.id));
   const pendingCourseRegsCount = (pendingCourseRegs ?? []).filter(r => clubCourseIds.has(r.course_id)).length;
@@ -73,14 +78,36 @@ export async function GET(request: NextRequest) {
   const { data: sickLeaves } = await supabase.from('sick_leaves')
     .select('id').eq('club_id', clubId).eq('status', 'active');
 
-  // Recent activity (last 5 bookings)
+  // Active members count
+  const { data: activeMembers } = await supabase.from('club_memberships')
+    .select('id').eq('club_id', clubId).eq('status', 'active');
+  const activeMembersCount = activeMembers?.length ?? 0;
+
+  // Upcoming bookings today (next 5 from now)
+  const nowIso = now.toISOString();
+  const upcomingRaw = (todayBookings ?? []).filter(b => b.time_slot_start && b.time_slot_start >= nowIso).slice(0, 5);
+  const upcomingBookerIds = [...new Set(upcomingRaw.map(b => b.booker_id).filter(Boolean))];
+  const { data: upcomingBookers } = upcomingBookerIds.length > 0
+    ? await supabase.from('users').select('id, full_name').in('id', upcomingBookerIds)
+    : { data: [] };
+  const upcomingBookerMap = new Map((upcomingBookers ?? []).map(u => [u.id, u.full_name]));
+
+  const upcomingBookings = upcomingRaw.map(b => ({
+    id: b.id,
+    type: b.booking_type,
+    court_name: courtMap.get(b.court_id) ?? '?',
+    time_start: b.time_slot_start,
+    time_end: b.time_slot_end,
+    booker_name: upcomingBookerMap.get(b.booker_id) ?? 'Admin',
+  }));
+
+  // Recent activity (last 5 bookings created)
   const { data: recentBookings } = courtIds.length > 0
     ? await supabase.from('bookings').select('id, booking_type, time_slot_start, total_price, booker_id, created_at')
         .in('court_id', courtIds).neq('status', 'cancelled')
         .order('created_at', { ascending: false }).limit(5)
     : { data: [] };
 
-  // Enrich recent with booker names
   const bookerIds = [...new Set((recentBookings ?? []).map(b => b.booker_id).filter(Boolean))];
   const { data: bookers } = bookerIds.length > 0
     ? await supabase.from('users').select('id, full_name').in('id', bookerIds)
@@ -103,11 +130,13 @@ export async function GET(request: NextRequest) {
       week: { revenue: weekRevenue, trend: revenueTrend },
       occupancy,
       pending: {
-        memberships: pendingMemberships?.length ?? 0,
+        memberships: pendingMembershipsCount,
         course_registrations: pendingCourseRegsCount,
         sick_leaves: sickLeaves?.length ?? 0,
-        total: (pendingMemberships?.length ?? 0) + pendingCourseRegsCount + (sickLeaves?.length ?? 0),
+        total: pendingMembershipsCount + pendingCourseRegsCount + (sickLeaves?.length ?? 0),
       },
+      active_members: activeMembersCount,
+      upcoming_bookings: upcomingBookings,
       recent_activity: recentActivity,
     },
   });
