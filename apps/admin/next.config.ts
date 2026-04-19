@@ -4,6 +4,12 @@ import { withSentryConfig } from '@sentry/nextjs';
 const nextConfig: NextConfig = {
   transpilePackages: ['@racket-booking/shared'],
 
+  // ─── Performance ──────────────────────────────────────────────────
+  productionBrowserSourceMaps: false,
+  experimental: {
+    optimizePackageImports: ['@supabase/supabase-js'],
+  },
+
   // ─── Security headers (Phase D) ───────────────────────────────────
   // Equivalent to helmet for Express but via Next.js config.
   async headers() {

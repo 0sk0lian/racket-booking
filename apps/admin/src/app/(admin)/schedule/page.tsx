@@ -160,11 +160,15 @@ function SchedulePageInner() {
 
   const loadWeek = useCallback(async () => {
     if (!selectedClub) return; setLoading(true); setSelected(new Set());
-    const dates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-    const results = await Promise.all(dates.map(d =>
-      fetch(`${API}/admin/schedule?clubId=${selectedClub}&date=${d}`).then(r => r.json()).then(j => [d, j.data?.courts || []] as const),
-    ));
-    setWeekCourts(Object.fromEntries(results));
+    const dateTo = addDays(weekStart, 6);
+    const r = await fetch(`${API}/admin/schedule?clubId=${selectedClub}&dateFrom=${weekStart}&dateTo=${dateTo}`).then(r => r.json());
+    const days = r.data?.days || {};
+    // Convert { "YYYY-MM-DD": { courts } } to { "YYYY-MM-DD": courts[] }
+    const result: Record<string, any[]> = {};
+    for (const [d, v] of Object.entries(days)) {
+      result[d] = (v as any).courts || [];
+    }
+    setWeekCourts(result);
     setLoading(false);
   }, [selectedClub, weekStart]);
 
