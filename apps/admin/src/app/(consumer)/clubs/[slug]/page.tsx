@@ -65,6 +65,7 @@ export default function ClubDetailPage() {
           {[
             { href: `/clubs/${slug}`, label: 'Banor' },
             { href: `/clubs/${slug}/trainings`, label: 'Träning' },
+            { href: `/clubs/${slug}/courses`, label: 'Kurser' },
             { href: `/clubs/${slug}/events`, label: 'Event' },
             { href: `/clubs/${slug}/matches`, label: 'Matcher' },
             { href: `/clubs/${slug}/book`, label: 'Boka tid' },

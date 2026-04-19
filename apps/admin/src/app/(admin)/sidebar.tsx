@@ -43,6 +43,7 @@ const collapsible = [
     hub: '/training-planner',
     items: [
       { href: '/training-planner', label: 'Träningsplanerare' },
+      { href: '/courses', label: 'Kurser' },
       { href: '/admin/trainers', label: 'Tränare' },
       { href: '/employee-schedule', label: 'Personalschema' },
       { href: '/employee-time', label: 'Tidrapportering' },
