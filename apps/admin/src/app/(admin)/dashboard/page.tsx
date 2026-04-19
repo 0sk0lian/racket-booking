@@ -14,6 +14,7 @@ interface DashboardData {
   occupancy: number;
   pending: { memberships: number; course_registrations: number; sick_leaves: number; total: number };
   active_members: number;
+  expiring_memberships: number;
   upcoming_bookings: {
     id: string; type: string; court_name: string;
     time_start: string; time_end: string; booker_name: string;
@@ -141,6 +142,46 @@ export default function DashboardPage() {
             <QuickAction href="/schedule?view=day" label="Ny bokning" color="#06b6d4" />
             <QuickAction href="/admin/memberships" label="Hantera vantande" color="#f59e0b" />
           </div>
+
+          {/* ---- Expiring Memberships Warning ---- */}
+          {data.expiring_memberships > 0 && (
+            <div style={{
+              background: 'rgba(245,158,11,0.06)',
+              border: '1px solid rgba(245,158,11,0.25)',
+              borderRadius: 14,
+              padding: '14px 20px',
+              marginBottom: 24,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}>
+              <span style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: 'rgba(245,158,11,0.12)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#b45309' }}>
+                  {data.expiring_memberships} medlemskap gar ut inom 7 dagar
+                </div>
+                <div style={{ fontSize: 12, color: '#92400e', marginTop: 2 }}>
+                  Kontakta medlemmarna for att fornya deras medlemskap.
+                </div>
+              </div>
+              <Link href="/admin/memberships" style={{
+                padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                background: '#f59e0b', color: '#fff', textDecoration: 'none',
+              }}>
+                Visa
+              </Link>
+            </div>
+          )}
 
           {/* ---- Two-column: Upcoming Schedule + Pending / Recent ---- */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>

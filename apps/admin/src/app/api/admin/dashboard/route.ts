@@ -83,6 +83,18 @@ export async function GET(request: NextRequest) {
     .select('id').eq('club_id', clubId).eq('status', 'active');
   const activeMembersCount = activeMembers?.length ?? 0;
 
+  // Memberships expiring this week
+  const nextWeek = new Date();
+  nextWeek.setDate(nextWeek.getDate() + 7);
+  const { data: expiring } = await supabase
+    .from('club_memberships')
+    .select('id')
+    .eq('club_id', clubId)
+    .eq('status', 'active')
+    .lt('expires_at', nextWeek.toISOString())
+    .gt('expires_at', new Date().toISOString());
+  const expiringMembershipsCount = (expiring ?? []).length;
+
   // Upcoming bookings today (next 5 from now)
   const nowIso = now.toISOString();
   const upcomingRaw = (todayBookings ?? []).filter(b => b.time_slot_start && b.time_slot_start >= nowIso).slice(0, 5);
@@ -136,6 +148,7 @@ export async function GET(request: NextRequest) {
         total: pendingMembershipsCount + pendingCourseRegsCount + (sickLeaves?.length ?? 0),
       },
       active_members: activeMembersCount,
+      expiring_memberships: expiringMembershipsCount,
       upcoming_bookings: upcomingBookings,
       recent_activity: recentActivity,
     },

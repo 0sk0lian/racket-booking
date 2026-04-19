@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
 import { requireClubAccess } from '../../../../lib/auth/guards';
 
-function enrichBooking(b: any, userMap: Map<string, any>) {
+function enrichBooking(b: any, userMap: Map<string, any>, attendanceMap: Map<string, { present: number; total: number }>) {
   const startHour = new Date(b.time_slot_start).getHours();
   const endHour = new Date(b.time_slot_end).getHours();
   const booker = userMap.get(b.booker_id);
@@ -38,6 +38,8 @@ function enrichBooking(b: any, userMap: Map<string, any>) {
     eventAttendeeIds: b.event_attendee_ids ?? [],
     notes: b.notes,
     isSplitPayment: b.is_split_payment ?? false,
+    attendancePresent: attendanceMap.get(b.id)?.present ?? 0,
+    attendanceTotal: attendanceMap.get(b.id)?.total ?? 0,
   };
 }
 
@@ -96,6 +98,20 @@ export async function GET(request: NextRequest) {
     : { data: [] };
   const userMap = new Map((usersData ?? []).map(u => [u.id, u]));
 
+  // 3b. Fetch attendance counts for all bookings
+  const bookingIds = (allBookings ?? []).map(b => b.id);
+  const { data: attendanceData } = bookingIds.length > 0
+    ? await supabase.from('attendance').select('booking_id, status').in('booking_id', bookingIds).not('status', 'in', '(cancelled,declined)')
+    : { data: [] };
+
+  const attendanceMap = new Map<string, { present: number; total: number }>();
+  for (const a of attendanceData ?? []) {
+    const entry = attendanceMap.get(a.booking_id) ?? { present: 0, total: 0 };
+    entry.total++;
+    if (a.status === 'present') entry.present++;
+    attendanceMap.set(a.booking_id, entry);
+  }
+
   // 4. Build response
   const buildCourtsForBookings = (bookings: any[]) =>
     (courts ?? []).map(court => ({
@@ -105,7 +121,7 @@ export async function GET(request: NextRequest) {
       baseRate: court.base_hourly_rate,
       bookings: bookings
         .filter(b => b.court_id === court.id)
-        .map(b => enrichBooking(b, userMap))
+        .map(b => enrichBooking(b, userMap, attendanceMap))
         .sort((a: any, b: any) => a.startHour - b.startHour),
     }));
 

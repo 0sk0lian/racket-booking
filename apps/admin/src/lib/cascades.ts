@@ -324,6 +324,44 @@ export async function onCourseSessionsGenerated(
 }
 
 // ---------------------------------------------------------------------------
+// Group player removal
+// ---------------------------------------------------------------------------
+
+/**
+ * Called when a player is removed from a group.
+ * Removes the player from invited_ids and player_ids on all non-cancelled
+ * training sessions linked to that group.
+ */
+export async function onPlayerRemovedFromGroup(params: {
+  userId: string;
+  groupId: string;
+  clubId: string;
+}) {
+  const supabase = createSupabaseAdminClient();
+
+  // Remove from future training session templates
+  const { data: sessions } = await supabase
+    .from('training_sessions')
+    .select('id, invited_ids, player_ids')
+    .eq('club_id', params.clubId)
+    .eq('group_id', params.groupId)
+    .neq('status', 'cancelled');
+
+  for (const session of sessions ?? []) {
+    const updates: Record<string, unknown> = {};
+    const newInvited = (session.invited_ids ?? []).filter((id: string) => id !== params.userId);
+    const newPlayers = (session.player_ids ?? []).filter((id: string) => id !== params.userId);
+
+    if (newInvited.length !== (session.invited_ids ?? []).length) updates.invited_ids = newInvited;
+    if (newPlayers.length !== (session.player_ids ?? []).length) updates.player_ids = newPlayers;
+
+    if (Object.keys(updates).length > 0) {
+      await supabase.from('training_sessions').update(updates).eq('id', session.id);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Conflict detection
 // ---------------------------------------------------------------------------
 
