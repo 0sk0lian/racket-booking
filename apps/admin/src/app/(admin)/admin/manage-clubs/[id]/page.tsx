@@ -41,6 +41,9 @@ export default function ClubDetailPage() {
   const [inviteRole, setInviteRole] = useState<'owner' | 'admin' | 'staff'>('admin');
   const [inviteResult, setInviteResult] = useState<{ tempPassword?: string; email?: string } | null>(null);
 
+  const [membershipTypes, setMembershipTypes] = useState<any[]>([]);
+  const [newType, setNewType] = useState({ name: '', description: '', price: '', interval: 'month' });
+
   const [busy, setBusy] = useState(false);
   const [deletingClub, setDeletingClub] = useState(false);
   const [flash, setFlash] = useState('');
@@ -55,17 +58,24 @@ export default function ClubDetailPage() {
     setAssignments(response.data ?? []);
   };
 
+  const loadMembershipTypes = async () => {
+    const response = await fetch(`${API}/membership-types?clubId=${id}`).then((r) => r.json());
+    setMembershipTypes(response.data ?? []);
+  };
+
   const loadInitial = async () => {
     setLoading(true);
 
-    const [clubsResponse, courtsResponse, meResponse] = await Promise.all([
+    const [clubsResponse, courtsResponse, meResponse, typesResponse] = await Promise.all([
       fetch(`${API}/clubs`).then((r) => r.json()),
       fetch(`${API}/courts?clubId=${id}`).then((r) => r.json()),
       fetch(`${API}/users/me`).then((r) => r.json()),
+      fetch(`${API}/membership-types?clubId=${id}`).then((r) => r.json()),
     ]);
 
     setClub((clubsResponse.data ?? []).find((row: any) => row.id === id) ?? null);
     setCourts(courtsResponse.data ?? []);
+    setMembershipTypes(typesResponse.data ?? []);
 
     const role = meResponse?.data?.role ?? null;
     setMeRole(role);
@@ -148,6 +158,36 @@ export default function ClubDetailPage() {
 
     await loadAssignments();
     setToast('Admin removed from venue');
+  };
+
+  const createMembershipType = async () => {
+    if (!newType.name.trim()) return;
+    setBusy(true);
+    const response = await fetch(`${API}/membership-types`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clubId: id,
+        name: newType.name.trim(),
+        description: newType.description || null,
+        price: newType.price ? Number(newType.price) : 0,
+        interval: newType.interval,
+      }),
+    }).then((r) => r.json());
+    setBusy(false);
+    if (!response.success) return setToast(response.error ?? 'Could not create membership type');
+    setNewType({ name: '', description: '', price: '', interval: 'month' });
+    await loadMembershipTypes();
+    setToast('Membership type created');
+  };
+
+  const deleteMembershipType = async (typeId: string) => {
+    setBusy(true);
+    const response = await fetch(`${API}/membership-types?id=${typeId}`, { method: 'DELETE' }).then((r) => r.json());
+    setBusy(false);
+    if (!response.success) return setToast(response.error ?? 'Could not delete');
+    await loadMembershipTypes();
+    setToast('Membership type removed');
   };
 
   const deleteClub = async () => {
@@ -328,6 +368,53 @@ export default function ClubDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Membership Types */}
+      <div style={{ marginBottom: 22 }}>
+        <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10 }}>Medlemskap</h2>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>Skapa ny typ</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 100px 130px auto', gap: 8, alignItems: 'center', marginBottom: 14 }}>
+            <input value={newType.name} onChange={(e) => setNewType((p) => ({ ...p, name: e.target.value }))} placeholder="Namn (t.ex. Gold)" style={inputStyle} />
+            <input value={newType.description} onChange={(e) => setNewType((p) => ({ ...p, description: e.target.value }))} placeholder="Beskrivning" style={inputStyle} />
+            <input value={newType.price} onChange={(e) => setNewType((p) => ({ ...p, price: e.target.value }))} placeholder="Pris" type="number" min="0" style={inputStyle} />
+            <select value={newType.interval} onChange={(e) => setNewType((p) => ({ ...p, interval: e.target.value }))} style={inputStyle}>
+              <option value="month">Per månad</option>
+              <option value="quarter">Per kvartal</option>
+              <option value="half_year">Per halvår</option>
+              <option value="year">Per år</option>
+              <option value="once">Engångs</option>
+            </select>
+            <button onClick={createMembershipType} disabled={busy || !newType.name.trim()} className="btn btn-primary">
+              Skapa
+            </button>
+          </div>
+
+          {membershipTypes.length === 0 ? (
+            <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>Inga medlemskapstyper skapade ännu.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {membershipTypes.map((mt) => (
+                <div key={mt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{mt.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {mt.description ?? ''}
+                      {mt.description ? ' | ' : ''}
+                      {mt.price > 0 ? `${mt.price} ${mt.currency}` : 'Gratis'}
+                      {' / '}
+                      {{ month: 'månad', quarter: 'kvartal', half_year: 'halvår', year: 'år', once: 'engångs' }[mt.interval as string] ?? mt.interval}
+                    </div>
+                  </div>
+                  <button className="btn btn-outline" style={{ padding: '4px 10px', fontSize: 11, borderColor: '#ef4444', color: '#ef4444' }} onClick={() => deleteMembershipType(mt.id)} disabled={busy}>
+                    Ta bort
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>Courts ({courts.length})</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
