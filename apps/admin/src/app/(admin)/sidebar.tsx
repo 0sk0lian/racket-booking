@@ -56,6 +56,7 @@ const collapsible = [
     items: [
       { href: '/admin/courts', label: 'Banor' },
       { href: '/admin/blackouts', label: 'Stängningar' },
+      { href: '/admin/memberships', label: 'Medlemskap' },
       { href: '/admin/settings', label: 'Inställningar' },
       { href: '/admin/manage-clubs', label: 'Alla Klubbar' },
     ],
