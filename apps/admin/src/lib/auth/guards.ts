@@ -97,3 +97,56 @@ export async function scopeClubIdsForAdmin(admin: AuthOk<true>) {
   if (admin.isSuperadmin) return null;
   return getManagedClubIds(admin.user.id);
 }
+
+/**
+ * Requires at least staff-level access to a club.
+ * Staff can: view schedule, check-in attendance, view members (read-only on most things).
+ * Returns the staff role ('owner' | 'admin' | 'staff') for the specific club.
+ */
+export async function requireStaffAccess(clubId: string): Promise<
+  { ok: true; user: User; clubRole: 'owner' | 'admin' | 'staff'; isSuperadmin: boolean; response?: never } |
+  { ok: false; response: NextResponse; user?: never; clubRole?: never; isSuperadmin?: never }
+> {
+  const admin = await requireAdmin();
+  if (!admin.ok) {
+    // Not an admin — but might be staff
+    const user = await getRequestUser();
+    if (!user) return { ok: false, response: NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 }) };
+
+    const supabase = createSupabaseAdminClient();
+    const { data: assignment } = await supabase
+      .from('club_admins')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('club_id', clubId)
+      .maybeSingle();
+
+    if (!assignment) {
+      return { ok: false, response: NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 }) };
+    }
+
+    return { ok: true, user, clubRole: assignment.role, isSuperadmin: false };
+  }
+
+  // Admin or superadmin
+  if (admin.isSuperadmin) {
+    return { ok: true, user: admin.user, clubRole: 'owner', isSuperadmin: true };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data: assignment } = await supabase
+    .from('club_admins')
+    .select('role')
+    .eq('user_id', admin.user.id)
+    .eq('club_id', clubId)
+    .maybeSingle();
+
+  return { ok: true, user: admin.user, clubRole: assignment?.role ?? 'admin', isSuperadmin: false };
+}
+
+/**
+ * Checks if the staff member has write access (owner or admin, not staff).
+ */
+export function canWrite(clubRole: string): boolean {
+  return clubRole === 'owner' || clubRole === 'admin';
+}

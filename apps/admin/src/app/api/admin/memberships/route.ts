@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
 import { requireAdmin, requireClubAccess, scopeClubIdsForAdmin } from '../../../../lib/auth/guards';
 import { onMembershipApproved } from '../../../../lib/cascades';
+import { sendNotification } from '../../../../lib/notifications';
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
@@ -87,6 +88,17 @@ export async function PATCH(request: NextRequest) {
       user_id: data.user_id,
       membership_type: data.membership_type,
       approved_by: admin.user.id,
+    });
+
+    await sendNotification({
+      userId: data.user_id,
+      clubId: data.club_id,
+      type: 'membership.approved',
+      title: 'Medlemskap godkänt',
+      body: 'Ditt medlemskap har godkänts. Välkommen!',
+      entityType: 'membership',
+      entityId: id,
+      sendEmail: true,
     });
   }
 

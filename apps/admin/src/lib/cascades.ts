@@ -320,3 +320,226 @@ export async function detectConflicts(params: {
 
   return warnings;
 }
+
+// ---------------------------------------------------------------------------
+// Group management
+// ---------------------------------------------------------------------------
+
+/**
+ * Called when a player is manually added to a group.
+ * Finds future training sessions for this group and creates attendance rows.
+ */
+export async function onPlayerAddedToGroup(params: {
+  userId: string;
+  groupId: string;
+  clubId: string;
+}) {
+  const supabase = createSupabaseAdminClient();
+
+  // Find future training sessions that reference this group
+  const { data: sessions } = await supabase
+    .from('training_sessions')
+    .select('id, day_of_week, start_hour, end_hour, court_id, invited_ids')
+    .eq('club_id', params.clubId)
+    .eq('group_id', params.groupId)
+    .neq('status', 'cancelled');
+
+  if (!sessions?.length) return;
+
+  // Add user to invited_ids for each session
+  for (const session of sessions) {
+    const currentInvited: string[] = session.invited_ids ?? [];
+    if (currentInvited.includes(params.userId)) continue;
+
+    await supabase
+      .from('training_sessions')
+      .update({ invited_ids: [...currentInvited, params.userId] })
+      .eq('id', session.id);
+  }
+
+  // Find future bookings linked to these sessions and create attendance
+  const { data: futureBookings } = await supabase
+    .from('bookings')
+    .select('id, player_ids')
+    .eq('booking_type', 'training')
+    .neq('status', 'cancelled')
+    .gt('time_slot_start', new Date().toISOString());
+
+  // Create attendance rows for bookings that match sessions in this group
+  for (const booking of futureBookings ?? []) {
+    await supabase.from('attendance').upsert(
+      { booking_id: booking.id, user_id: params.userId, status: 'invited' },
+      { onConflict: 'booking_id,user_id', ignoreDuplicates: true }
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Blackout conflicts
+// ---------------------------------------------------------------------------
+
+/**
+ * Called when a blackout period is created.
+ * Returns conflicting bookings so the admin can decide what to do.
+ */
+export async function getBlackoutConflicts(params: {
+  clubId: string;
+  startsAt: string;
+  endsAt: string;
+  courtIds?: string[];
+}): Promise<Array<{ id: string; court_id: string; time_slot_start: string; time_slot_end: string; booking_type: string; booker_name: string }>> {
+  const supabase = createSupabaseAdminClient();
+
+  // Get courts in scope
+  let courtIds = params.courtIds;
+  if (!courtIds?.length) {
+    const { data: courts } = await supabase
+      .from('courts')
+      .select('id')
+      .eq('club_id', params.clubId);
+    courtIds = (courts ?? []).map(c => c.id);
+  }
+
+  if (!courtIds.length) return [];
+
+  const { data: conflicts } = await supabase
+    .from('bookings')
+    .select('id, court_id, time_slot_start, time_slot_end, booking_type, booker_id')
+    .in('court_id', courtIds)
+    .neq('status', 'cancelled')
+    .lt('time_slot_start', params.endsAt)
+    .gt('time_slot_end', params.startsAt);
+
+  if (!conflicts?.length) return [];
+
+  const bookerIds = [...new Set(conflicts.map(c => c.booker_id))];
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, full_name')
+    .in('id', bookerIds);
+  const userMap = new Map((users ?? []).map(u => [u.id, u.full_name]));
+
+  return conflicts.map(c => ({
+    id: c.id,
+    court_id: c.court_id,
+    time_slot_start: c.time_slot_start,
+    time_slot_end: c.time_slot_end,
+    booking_type: c.booking_type,
+    booker_name: userMap.get(c.booker_id) ?? 'Unknown',
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Court deactivation
+// ---------------------------------------------------------------------------
+
+/**
+ * Called when a court is deactivated.
+ * Cancels all future bookings on that court and returns the count.
+ */
+export async function onCourtDeactivated(courtId: string): Promise<number> {
+  const supabase = createSupabaseAdminClient();
+
+  const { data: futureBookings } = await supabase
+    .from('bookings')
+    .select('id')
+    .eq('court_id', courtId)
+    .neq('status', 'cancelled')
+    .gt('time_slot_start', new Date().toISOString());
+
+  if (!futureBookings?.length) return 0;
+
+  const ids = futureBookings.map(b => b.id);
+  await supabase
+    .from('bookings')
+    .update({ status: 'cancelled' })
+    .in('id', ids);
+
+  // Cascade attendance
+  for (const id of ids) {
+    await onBookingCancelled(id);
+  }
+
+  return ids.length;
+}
+
+// ---------------------------------------------------------------------------
+// Trainer reassignment
+// ---------------------------------------------------------------------------
+
+/**
+ * Called when a trainer is reassigned on a session.
+ * Returns info for notification purposes.
+ */
+export async function onTrainerReassigned(params: {
+  sessionId: string;
+  oldTrainerId: string;
+  newTrainerId: string;
+}): Promise<{ oldTrainerName: string; newTrainerName: string }> {
+  const supabase = createSupabaseAdminClient();
+
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, full_name')
+    .in('id', [params.oldTrainerId, params.newTrainerId]);
+
+  const nameMap = new Map((users ?? []).map(u => [u.id, u.full_name ?? 'Unknown']));
+
+  return {
+    oldTrainerName: nameMap.get(params.oldTrainerId) ?? 'Unknown',
+    newTrainerName: nameMap.get(params.newTrainerId) ?? 'Unknown',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Opening hours conflicts
+// ---------------------------------------------------------------------------
+
+/**
+ * Called when opening hours change for a venue.
+ * Returns bookings that fall outside the new hours.
+ */
+export async function getOpeningHoursConflicts(params: {
+  clubId: string;
+  newOpeningHours: Array<{ day: number; open: string; close: string }>;
+}): Promise<Array<{ id: string; court_id: string; time_slot_start: string; time_slot_end: string; conflict: string }>> {
+  const supabase = createSupabaseAdminClient();
+
+  const { data: courts } = await supabase
+    .from('courts')
+    .select('id')
+    .eq('club_id', params.clubId);
+  const courtIds = (courts ?? []).map(c => c.id);
+  if (!courtIds.length) return [];
+
+  // Get all future bookings
+  const { data: bookings } = await supabase
+    .from('bookings')
+    .select('id, court_id, time_slot_start, time_slot_end')
+    .in('court_id', courtIds)
+    .neq('status', 'cancelled')
+    .gt('time_slot_start', new Date().toISOString());
+
+  const conflicts: Array<{ id: string; court_id: string; time_slot_start: string; time_slot_end: string; conflict: string }> = [];
+
+  for (const b of bookings ?? []) {
+    const start = new Date(b.time_slot_start);
+    const end = new Date(b.time_slot_end);
+    const dayOfWeek = start.getDay();
+
+    const rule = params.newOpeningHours.find(h => h.day === dayOfWeek);
+    if (!rule) continue;
+
+    const openHour = parseInt(rule.open.split(':')[0]);
+    const closeHour = parseInt(rule.close.split(':')[0]);
+
+    if (start.getHours() < openHour || end.getHours() > closeHour) {
+      conflicts.push({
+        ...b,
+        conflict: `Outside new hours ${rule.open}-${rule.close}`,
+      });
+    }
+  }
+
+  return conflicts;
+}

@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../../lib/supabase/server';
 import { onBookingCreated } from '../../../../lib/cascades';
+import { calculateBookingPrice } from '../../../../lib/pricing';
 
 type OpeningHoursRow = { day?: number; open?: string; close?: string };
 
@@ -135,7 +136,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'This time slot is already booked' }, { status: 409 });
   }
 
-  const totalPrice = court.base_hourly_rate * durationHours * 1.05;
+  const pricing = await calculateBookingPrice({
+    courtId,
+    clubId: court.club_id,
+    durationHours,
+    startHour: start.getHours(),
+    dayOfWeek: start.getDay(),
+    userId: user.id,
+    bookingType: 'regular',
+  });
 
   const { data: booking, error } = await supabase.from('bookings').insert({
     court_id: courtId,
@@ -143,9 +152,9 @@ export async function POST(request: NextRequest) {
     time_slot_start: startDb,
     time_slot_end: endDb,
     status: 'confirmed',
-    total_price: totalPrice,
+    total_price: pricing.totalPrice,
     court_rental_vat_rate: 0.06,
-    platform_fee: court.base_hourly_rate * durationHours * 0.05,
+    platform_fee: pricing.platformFee,
     access_pin: String(Math.floor(100000 + Math.random() * 900000)),
     booking_type: 'regular',
   }).select().single();
