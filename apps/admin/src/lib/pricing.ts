@@ -45,15 +45,17 @@ export async function calculateBookingPrice(params: {
   let peakMultiplier = 1;
   const { data: priceRule } = await supabase
     .from('price_rules')
-    .select('price_multiplier')
+    .select('price_override')
     .eq('court_id', params.courtId)
     .eq('day_of_week', params.dayOfWeek)
     .lte('start_hour', params.startHour)
     .gt('end_hour', params.startHour)
+    .eq('is_active', true)
     .maybeSingle();
 
-  if (priceRule?.price_multiplier) {
-    peakMultiplier = priceRule.price_multiplier;
+  if (priceRule?.price_override) {
+    // price_override is an absolute rate (e.g., 550 SEK/h), convert to multiplier
+    peakMultiplier = baseRate > 0 ? priceRule.price_override / baseRate : 1;
   }
 
   // 3. Member discount

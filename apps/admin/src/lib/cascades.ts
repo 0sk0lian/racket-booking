@@ -327,7 +327,8 @@ export async function detectConflicts(params: {
 
 /**
  * Called when a player is manually added to a group.
- * Finds future training sessions for this group and creates attendance rows.
+ * Finds future training sessions linked to this group (via group_id column)
+ * and adds the player to invited_ids + creates attendance for linked bookings.
  */
 export async function onPlayerAddedToGroup(params: {
   userId: string;
@@ -336,18 +337,21 @@ export async function onPlayerAddedToGroup(params: {
 }) {
   const supabase = createSupabaseAdminClient();
 
-  // Find future training sessions that reference this group
+  // Find training sessions that reference this group
   const { data: sessions } = await supabase
     .from('training_sessions')
-    .select('id, day_of_week, start_hour, end_hour, court_id, invited_ids')
+    .select('id, invited_ids')
     .eq('club_id', params.clubId)
     .eq('group_id', params.groupId)
     .neq('status', 'cancelled');
 
   if (!sessions?.length) return;
 
+  const sessionIds: string[] = [];
+
   // Add user to invited_ids for each session
   for (const session of sessions) {
+    sessionIds.push(session.id);
     const currentInvited: string[] = session.invited_ids ?? [];
     if (currentInvited.includes(params.userId)) continue;
 
@@ -357,19 +361,32 @@ export async function onPlayerAddedToGroup(params: {
       .eq('id', session.id);
   }
 
-  // Find future bookings linked to these sessions and create attendance
+  // Find future bookings that were generated from these sessions (via course_sessions)
+  // and create attendance rows for the new player
+  const { data: linkedBookings } = await supabase
+    .from('course_sessions')
+    .select('booking_id')
+    .in('id', sessionIds)
+    .not('booking_id', 'is', null);
+
+  const bookingIds = (linkedBookings ?? [])
+    .map(r => r.booking_id)
+    .filter((id): id is string => !!id);
+
+  if (bookingIds.length === 0) return;
+
+  // Only target future bookings
   const { data: futureBookings } = await supabase
     .from('bookings')
-    .select('id, player_ids')
-    .eq('booking_type', 'training')
+    .select('id')
+    .in('id', bookingIds)
     .neq('status', 'cancelled')
     .gt('time_slot_start', new Date().toISOString());
 
-  // Create attendance rows for bookings that match sessions in this group
   for (const booking of futureBookings ?? []) {
     await supabase.from('attendance').upsert(
       { booking_id: booking.id, user_id: params.userId, status: 'invited' },
-      { onConflict: 'booking_id,user_id', ignoreDuplicates: true }
+      { onConflict: 'booking_id,user_id', ignoreDuplicates: true },
     );
   }
 }
