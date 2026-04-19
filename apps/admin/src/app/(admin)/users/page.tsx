@@ -100,7 +100,7 @@ export default function UsersPage() {
 
   return (
     <div>
-      <div className="page-header"><h1>Members</h1></div>
+      <div className="page-header"><h1>Medlemmar</h1></div>
 
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 24 }}>
         <div className="stat-card">

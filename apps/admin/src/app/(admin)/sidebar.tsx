@@ -25,10 +25,10 @@ const collapsible = [
     ],
   },
   {
-    key: 'spelare', label: 'Spelare & Matcher', icon: 'P', color: '#0ea5e9',
+    key: 'spelare', label: 'Medlemmar & Matcher', icon: 'P', color: '#0ea5e9',
     hub: '/users',
     items: [
-      { href: '/users', label: 'Spelare' },
+      { href: '/users', label: 'Medlemmar' },
       { href: '/groups', label: 'Grupper' },
       { href: '/registration-forms', label: 'Anmälningar' },
       { href: '/public-matches', label: 'Publika Matcher' },
