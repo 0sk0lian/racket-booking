@@ -11,6 +11,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../../lib/supabase/server';
+import { onBookingCreated } from '../../../../lib/cascades';
 
 type OpeningHoursRow = { day?: number; open?: string; close?: string };
 
@@ -155,6 +156,16 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ success: false, error: error.message }, { status: 400 });
   }
+
+  // Cascade: create attendance row for the booker
+  await onBookingCreated({
+    id: booking.id,
+    court_id: booking.court_id,
+    player_ids: booking.player_ids ?? [],
+    trainer_id: booking.trainer_id ?? null,
+    booker_id: booking.booker_id,
+    booking_type: booking.booking_type,
+  });
 
   return NextResponse.json({ success: true, data: booking }, { status: 201 });
 }

@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../lib/supabase/server';
 import { requireClubAccess } from '../../../../../lib/auth/guards';
+import { onBookingCancelled } from '../../../../../lib/cascades';
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -67,5 +68,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     .eq('id', id);
 
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+
+  // Cascade: cancel all attendance rows for this booking
+  await onBookingCancelled(id);
+
   return NextResponse.json({ success: true });
 }

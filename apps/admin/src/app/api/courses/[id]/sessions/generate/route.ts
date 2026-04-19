@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../../lib/supabase/server';
 import { requireAdmin, requireClubAccess } from '../../../../../../lib/auth/guards';
+import { onCourseSessionsGenerated } from '../../../../../../lib/cascades';
 
 function toDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -60,6 +61,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // Update course status to active if it was draft
   if (course.status === 'draft') {
     await supabase.from('courses').update({ status: 'active', updated_at: new Date().toISOString() }).eq('id', courseId);
+  }
+
+  // Cascade: create bookings + attendance for each generated session
+  if (data && data.length > 0) {
+    const { data: registrations } = await supabase
+      .from('course_registrations')
+      .select('user_id')
+      .eq('course_id', courseId)
+      .eq('status', 'approved');
+    const registeredUserIds = (registrations ?? []).map(r => r.user_id);
+
+    await onCourseSessionsGenerated(data, course.club_id, registeredUserIds);
   }
 
   return NextResponse.json({ success: true, data: { generated: data?.length ?? 0, sessions: data } });

@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
 import { requireAdmin, requireClubAccess, scopeClubIdsForAdmin } from '../../../../lib/auth/guards';
+import { onMembershipApproved } from '../../../../lib/cascades';
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
@@ -77,5 +78,17 @@ export async function PATCH(request: NextRequest) {
 
   const { data, error } = await supabase.from('club_memberships').update(updates).eq('id', id).select().single();
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+
+  // Cascade: when a membership is approved, calculate expiry + assign to default group
+  if (status === 'active' && data) {
+    await onMembershipApproved({
+      id: data.id,
+      club_id: data.club_id,
+      user_id: data.user_id,
+      membership_type: data.membership_type,
+      approved_by: admin.user.id,
+    });
+  }
+
   return NextResponse.json({ success: true, data });
 }

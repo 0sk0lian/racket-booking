@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../lib/supabase/server';
 import { requireAdmin, requireClubAccess } from '../../../../../lib/auth/guards';
+import { onBookingCreated } from '../../../../../lib/cascades';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -89,6 +90,15 @@ export async function POST(request: NextRequest) {
         errors.push({ ...slot, week, error: error.code === '23P01' ? 'Slot already booked' : error.message });
       } else {
         results.push(booking);
+        // Cascade: create attendance rows for players/trainer
+        await onBookingCreated({
+          id: booking.id,
+          court_id: booking.court_id,
+          player_ids: booking.player_ids,
+          trainer_id: booking.trainer_id,
+          booker_id: booking.booker_id,
+          booking_type: booking.booking_type,
+        });
       }
     }
   }
