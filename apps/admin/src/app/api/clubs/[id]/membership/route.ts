@@ -45,6 +45,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     user_id: user.id,
     status: 'pending',
     membership_type: body.membershipType ?? 'standard',
+    form_answers: body.formAnswers ?? {},
     notes: body.notes ?? null,
     applied_at: new Date().toISOString(),
   }, { onConflict: 'club_id,user_id' }).select().single();

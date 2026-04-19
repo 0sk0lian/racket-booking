@@ -3,9 +3,11 @@ import { useEffect, useState } from 'react';
 const API = '/api';
 
 interface Club { id: string; name: string; }
-interface MembershipType { id: string; name: string; description: string | null; price: number; currency: string; interval: string; }
+interface FormField { key: string; label: string; type: 'text' | 'number' | 'select' | 'checkbox' | 'date'; required: boolean; options?: string[]; }
+interface MembershipType { id: string; name: string; description: string | null; price: number; currency: string; interval: string; form_fields: FormField[]; }
 
 const intervalLabels: Record<string, string> = { month: 'månad', quarter: 'kvartal', half_year: 'halvår', year: 'år', once: 'engångs' };
+const fieldTypeLabels: Record<string, string> = { text: 'Text', number: 'Nummer', select: 'Flerval', checkbox: 'Kryssruta', date: 'Datum' };
 
 export default function AdminMembershipsPage() {
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -17,6 +19,8 @@ export default function AdminMembershipsPage() {
   const [newType, setNewType] = useState({ name: '', description: '', price: '', interval: 'month' });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState({ name: '', description: '', price: '', interval: '' });
+  const [editFields, setEditFields] = useState<FormField[]>([]);
+  const [newField, setNewField] = useState<FormField>({ key: '', label: '', type: 'text', required: false });
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(''), 4000); };
 
   useEffect(() => {
@@ -43,11 +47,8 @@ export default function AdminMembershipsPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        clubId,
-        name: newType.name.trim(),
-        description: newType.description || null,
-        price: newType.price ? Number(newType.price) : 0,
-        interval: newType.interval,
+        clubId, name: newType.name.trim(), description: newType.description || null,
+        price: newType.price ? Number(newType.price) : 0, interval: newType.interval,
       }),
     }).then(r => r.json());
     setBusy(false);
@@ -60,6 +61,8 @@ export default function AdminMembershipsPage() {
   const startEdit = (t: MembershipType) => {
     setEditingId(t.id);
     setEditValues({ name: t.name, description: t.description ?? '', price: String(t.price), interval: t.interval });
+    setEditFields(t.form_fields ?? []);
+    setNewField({ key: '', label: '', type: 'text', required: false });
   };
 
   const saveEdit = async () => {
@@ -69,11 +72,9 @@ export default function AdminMembershipsPage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id: editingId,
-        name: editValues.name.trim(),
-        description: editValues.description || null,
-        price: editValues.price ? Number(editValues.price) : 0,
-        interval: editValues.interval,
+        id: editingId, name: editValues.name.trim(), description: editValues.description || null,
+        price: editValues.price ? Number(editValues.price) : 0, interval: editValues.interval,
+        formFields: editFields,
       }),
     }).then(r => r.json());
     setBusy(false);
@@ -81,6 +82,17 @@ export default function AdminMembershipsPage() {
     setEditingId(null);
     loadTypes();
     flash('Uppdaterad');
+  };
+
+  const addField = () => {
+    if (!newField.label.trim()) return;
+    const key = newField.label.trim().toLowerCase().replace(/[^a-z0-9åäö]+/g, '_').replace(/^_|_$/g, '');
+    setEditFields([...editFields, { ...newField, key, label: newField.label.trim() }]);
+    setNewField({ key: '', label: '', type: 'text', required: false });
+  };
+
+  const removeField = (idx: number) => {
+    setEditFields(editFields.filter((_, i) => i !== idx));
   };
 
   const deleteType = async (id: string) => {
@@ -95,7 +107,7 @@ export default function AdminMembershipsPage() {
     <div>
       <div className="page-header"><h1>Medlemskap</h1></div>
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -8, marginBottom: 16 }}>
-        Skapa och hantera medlemskapstyper som spelare kan välja när de ansöker om medlemskap.
+        Skapa medlemskapstyper och konfigurera ansökningsformuläret som spelare fyller i.
       </p>
       {toast && <div className="toast">{toast}</div>}
 
@@ -136,29 +148,85 @@ export default function AdminMembershipsPage() {
           <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Skapa din första typ ovan. Spelare ser dessa alternativ när de ansöker om medlemskap.</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {types.map(t => (
-            <div key={t.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px' }}>
+            <div key={t.id} style={{ background: 'var(--bg-card)', border: editingId === t.id ? '2px solid #6366f1' : '1px solid var(--border)', borderRadius: 12, padding: '16px 20px' }}>
               {editingId === t.id ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 90px 130px auto auto', gap: 8, alignItems: 'center' }}>
-                  <input value={editValues.name} onChange={e => setEditValues(p => ({ ...p, name: e.target.value }))} style={inp} />
-                  <input value={editValues.description} onChange={e => setEditValues(p => ({ ...p, description: e.target.value }))} style={inp} />
-                  <input value={editValues.price} onChange={e => setEditValues(p => ({ ...p, price: e.target.value }))} type="number" min="0" style={inp} />
-                  <select value={editValues.interval} onChange={e => setEditValues(p => ({ ...p, interval: e.target.value }))} style={inp}>
-                    <option value="month">Per månad</option>
-                    <option value="quarter">Per kvartal</option>
-                    <option value="half_year">Per halvår</option>
-                    <option value="year">Per år</option>
-                    <option value="once">Engångs</option>
-                  </select>
-                  <button onClick={saveEdit} disabled={busy} style={btnG}>Spara</button>
-                  <button onClick={() => setEditingId(null)} style={btnO}>Avbryt</button>
+                <div>
+                  {/* Edit type details */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 90px 130px', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+                    <input value={editValues.name} onChange={e => setEditValues(p => ({ ...p, name: e.target.value }))} style={inp} placeholder="Namn" />
+                    <input value={editValues.description} onChange={e => setEditValues(p => ({ ...p, description: e.target.value }))} style={inp} placeholder="Beskrivning" />
+                    <input value={editValues.price} onChange={e => setEditValues(p => ({ ...p, price: e.target.value }))} type="number" min="0" style={inp} placeholder="Pris" />
+                    <select value={editValues.interval} onChange={e => setEditValues(p => ({ ...p, interval: e.target.value }))} style={inp}>
+                      <option value="month">Per månad</option>
+                      <option value="quarter">Per kvartal</option>
+                      <option value="half_year">Per halvår</option>
+                      <option value="year">Per år</option>
+                      <option value="once">Engångs</option>
+                    </select>
+                  </div>
+
+                  {/* Form fields editor */}
+                  <div style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Formulärfält</div>
+
+                    {editFields.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                        {editFields.map((f, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#fff', borderRadius: 8, border: '1px solid var(--border)' }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{f.label}</span>
+                            <span style={{ fontSize: 11, color: 'var(--text-dim)', padding: '1px 8px', background: '#f1f5f9', borderRadius: 4 }}>{fieldTypeLabels[f.type]}</span>
+                            {f.required && <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 700 }}>Obligatorisk</span>}
+                            {f.type === 'select' && f.options?.length ? <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>({f.options.join(', ')})</span> : null}
+                            <button onClick={() => removeField(i)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 14, padding: '0 4px' }}>x</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px auto auto', gap: 8, alignItems: 'center' }}>
+                      <input value={newField.label} onChange={e => setNewField(p => ({ ...p, label: e.target.value }))} placeholder="Fältnamn (t.ex. Telefon)" style={inp} />
+                      <select value={newField.type} onChange={e => setNewField(p => ({ ...p, type: e.target.value as any }))} style={inp}>
+                        <option value="text">Text</option>
+                        <option value="number">Nummer</option>
+                        <option value="select">Flerval</option>
+                        <option value="checkbox">Kryssruta</option>
+                        <option value="date">Datum</option>
+                      </select>
+                      <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={newField.required} onChange={e => setNewField(p => ({ ...p, required: e.target.checked }))} />
+                        Oblig.
+                      </label>
+                      <button onClick={addField} disabled={!newField.label.trim()} style={{ ...btnG, padding: '6px 12px' }}>Lägg till</button>
+                    </div>
+
+                    {newField.type === 'select' && (
+                      <div style={{ marginTop: 6 }}>
+                        <input
+                          placeholder="Alternativ (kommaseparerade, t.ex. Nybörjare, Medel, Avancerad)"
+                          style={{ ...inp, width: '100%' }}
+                          onChange={e => setNewField(p => ({ ...p, options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={saveEdit} disabled={busy} style={btnG}>Spara</button>
+                    <button onClick={() => setEditingId(null)} style={btnO}>Avbryt</button>
+                  </div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 700 }}>{t.name}</div>
                     {t.description && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{t.description}</div>}
+                    {(t.form_fields?.length ?? 0) > 0 && (
+                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                        {t.form_fields.length} formulärfält: {t.form_fields.map(f => f.label).join(', ')}
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ textAlign: 'right' }}>

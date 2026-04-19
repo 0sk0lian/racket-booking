@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   if (!admin.ok) return admin.response;
 
   const body = await request.json();
-  const { clubId, name, description, price, currency, interval } = body;
+  const { clubId, name, description, price, currency, interval, formFields } = body;
 
   if (!clubId || !name?.trim()) {
     return NextResponse.json({ success: false, error: 'clubId and name required' }, { status: 400 });
@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
     price: price ?? 0,
     currency: currency ?? 'SEK',
     interval: interval ?? 'month',
+    form_fields: formFields ?? [],
   }).select().single();
 
   if (error) {
@@ -94,6 +95,7 @@ export async function PATCH(request: NextRequest) {
   if (interval !== undefined) updates.interval = interval;
   if (isActive !== undefined) updates.is_active = isActive;
   if (sortOrder !== undefined) updates.sort_order = sortOrder;
+  if (body.formFields !== undefined) updates.form_fields = body.formFields;
 
   const { data, error } = await supabase.from('membership_types').update(updates).eq('id', id).select().single();
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
