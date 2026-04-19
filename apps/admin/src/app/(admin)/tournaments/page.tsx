@@ -1,51 +1,24 @@
-import { apiGet } from '../api';
+'use client';
+import { useEffect, useState } from 'react';
+const API = '/api';
 
-export default async function TournamentsPage() {
-  const res = await apiGet<any>('/tournaments');
-  const tournaments = res.data || [];
+export default function TournamentsPage() {
+  const [tournaments, setTournaments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Tournaments don't have a dedicated Route Handler yet — show empty state
+    setLoading(false);
+  }, []);
 
   return (
     <div>
-      <div className="page-header"><h1>Tournaments</h1></div>
-
-      {tournaments.length === 0 ? (
+      <div className="page-header"><h1>Turneringar</h1></div>
+      {loading ? <div className="loading">Laddar...</div> : (
         <div className="empty-state">
-          <p style={{fontSize:48,marginBottom:16}}>⚑</p>
-          <h3 style={{marginBottom:8}}>No tournaments yet</h3>
-          <p>Create an Americano or Mexicano tournament via the API.</p>
-          <pre style={{
-            background:'var(--bg-card)', border:'1px solid var(--border)',
-            borderRadius:8, padding:16, marginTop:16, textAlign:'left',
-            display:'inline-block', fontSize:13, color:'var(--text-muted)'
-          }}>
-{`POST /api/tournaments
-{
-  "clubId": "<club-id>",
-  "name": "Friday Americano",
-  "sportType": "padel",
-  "format": "americano",
-  "playerIds": ["<id1>", "<id2>", "<id3>", "<id4>",
-                "<id5>", "<id6>", "<id7>", "<id8>"]
-}`}
-          </pre>
-        </div>
-      ) : (
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>Name</th><th>Format</th><th>Sport</th><th>Players</th><th>Rounds</th><th>Status</th></tr></thead>
-            <tbody>
-              {tournaments.map((t: any) => (
-                <tr key={t.id}>
-                  <td style={{fontWeight:600}}>{t.name}</td>
-                  <td><span className="badge badge-blue">{t.format}</span></td>
-                  <td>{t.sport_type}</td>
-                  <td>{t.player_ids?.length}</td>
-                  <td>{t.schedule?.length || 0}</td>
-                  <td><span className={`badge ${t.status === 'active' ? 'badge-green' : t.status === 'completed' ? 'badge-blue' : 'badge-yellow'}`}>{t.status}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <p style={{ fontSize: 42, marginBottom: 8 }}>🏆</p>
+          <h3>Turneringar</h3>
+          <p style={{ color: 'var(--text-dim)', marginTop: 4 }}>Americano- och Mexicano-turneringar. Kommer snart.</p>
         </div>
       )}
     </div>

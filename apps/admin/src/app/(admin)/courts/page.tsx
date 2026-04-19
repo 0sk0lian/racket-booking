@@ -1,31 +1,33 @@
-import { apiGet } from '../api';
+'use client';
+import { useEffect, useState } from 'react';
+const API = '/api';
 
-export default async function CourtsPage() {
-  const res = await apiGet<any>('/courts');
-  const courts = res.data || [];
+export default function CourtsPage() {
+  const [courts, setCourts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const sportColors: Record<string, string> = { padel: 'badge-blue', tennis: 'badge-green', squash: 'badge-yellow', badminton: 'badge-red' };
+  useEffect(() => {
+    fetch(`${API}/courts`).then(r => r.json()).then(r => { setCourts(r.data ?? []); setLoading(false); });
+  }, []);
 
   return (
     <div>
-      <div className="page-header"><h1>Courts</h1></div>
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>Name</th><th>Club</th><th>Sport</th><th>Indoor</th><th>Rate/hr</th><th>Status</th></tr></thead>
-          <tbody>
-            {courts.map((c: any) => (
-              <tr key={c.id}>
-                <td style={{fontWeight:600}}>{c.name}</td>
-                <td>{c.club_name}</td>
-                <td><span className={`badge ${sportColors[c.sport_type] || 'badge-blue'}`}>{c.sport_type}</span></td>
-                <td>{c.is_indoor ? 'Indoor' : 'Outdoor'}</td>
-                <td>{c.base_hourly_rate} SEK</td>
-                <td><span className="badge badge-green">Active</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <div className="page-header"><h1>Banor</h1></div>
+      {loading ? <div className="loading">Laddar...</div> : courts.length === 0 ? (
+        <div className="empty-state"><h3>Inga banor</h3></div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {courts.map(c => (
+            <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px' }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>{c.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'capitalize' }}>{c.sport_type} · {c.is_indoor ? 'Inomhus' : 'Utomhus'}</div>
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#6366f1' }}>{c.base_hourly_rate} <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-dim)' }}>SEK/h</span></div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
