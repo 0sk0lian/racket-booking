@@ -37,6 +37,10 @@ export default function ClubDetailPage() {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedRole, setSelectedRole] = useState<'owner' | 'admin' | 'staff'>('admin');
 
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'owner' | 'admin' | 'staff'>('admin');
+  const [inviteResult, setInviteResult] = useState<{ tempPassword?: string; email?: string } | null>(null);
+
   const [busy, setBusy] = useState(false);
   const [deletingClub, setDeletingClub] = useState(false);
   const [flash, setFlash] = useState('');
@@ -105,6 +109,30 @@ export default function ClubDetailPage() {
     setSelectedUserId('');
     await loadAssignments();
     setToast('Admin assigned to venue');
+  };
+
+  const inviteByEmail = async () => {
+    if (!inviteEmail.trim()) return;
+    setBusy(true);
+    setInviteResult(null);
+
+    const response = await fetch(`${API}/admin/invite-admin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: inviteEmail.trim(), clubId: id, role: inviteRole }),
+    }).then((r) => r.json());
+    setBusy(false);
+
+    if (!response.success) return setToast(response.error ?? 'Could not invite admin');
+
+    if (response.data?.tempPassword) {
+      setInviteResult({ tempPassword: response.data.tempPassword, email: response.data.email });
+    } else {
+      setToast(`${response.data.email} assigned as ${inviteRole}`);
+    }
+
+    setInviteEmail('');
+    await loadAssignments();
   };
 
   const removeUser = async (userId: string) => {
@@ -197,7 +225,45 @@ export default function ClubDetailPage() {
         <div style={{ marginBottom: 22 }}>
           <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10 }}>Tenant Admins</h2>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px auto', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+            {/* Invite by email */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>Bjud in via e-post</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px auto', gap: 8, alignItems: 'center' }}>
+                <input
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="admin@example.com"
+                  type="email"
+                  style={inputStyle}
+                />
+                <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as any)} style={inputStyle}>
+                  <option value="owner">Owner</option>
+                  <option value="admin">Admin</option>
+                  <option value="staff">Staff</option>
+                </select>
+                <button onClick={inviteByEmail} disabled={!inviteEmail.trim() || busy} className="btn btn-primary">
+                  {busy ? '...' : 'Invite'}
+                </button>
+              </div>
+            </div>
+
+            {inviteResult?.tempPassword && (
+              <div style={{ marginBottom: 14, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#166534', marginBottom: 4 }}>Konto skapat</div>
+                <div style={{ fontSize: 12, color: '#15803d' }}>
+                  E-post: <strong>{inviteResult.email}</strong>
+                </div>
+                <div style={{ fontSize: 12, color: '#15803d', marginBottom: 6 }}>
+                  Engångslösenord: <code style={{ background: '#dcfce7', padding: '2px 6px', borderRadius: 4, fontWeight: 700, fontSize: 14 }}>{inviteResult.tempPassword}</code>
+                </div>
+                <div style={{ fontSize: 11, color: '#166534' }}>Skicka detta till adminen. De måste byta lösenord vid första inloggningen.</div>
+                <button onClick={() => setInviteResult(null)} style={{ marginTop: 6, fontSize: 11, color: '#166534', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>Stäng</button>
+              </div>
+            )}
+
+            {/* Assign existing user */}
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>Eller tilldela befintlig användare</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px auto', gap: 8, alignItems: 'center', marginBottom: 12 }}>
               <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} style={inputStyle}>
                 <option value="">Select user</option>
                 {unassignedUsers.map((user) => (

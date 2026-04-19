@@ -3,12 +3,15 @@ import { createSupabaseServerClient } from '../../lib/supabase/server';
 import { AdminShell } from './admin-shell';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  // Only check session — middleware already gates unauthenticated users.
-  // Role checks happen in each API route via requireAdmin()/requireClubAccess().
   const userSupabase = await createSupabaseServerClient();
   const { data: { user } } = await userSupabase.auth.getUser();
   if (!user) {
     redirect('/login');
+  }
+
+  // Force password change for accounts created with a temp password
+  if (user.user_metadata?.must_change_password) {
+    redirect('/change-password');
   }
 
   return (

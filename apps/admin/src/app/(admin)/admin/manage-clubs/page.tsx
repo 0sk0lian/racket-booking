@@ -15,7 +15,9 @@ export default function ManageClubsPage() {
     city: '',
     organizationNumber: '',
     timezone: 'Europe/Stockholm',
+    adminEmail: '',
   });
+  const [inviteResult, setInviteResult] = useState<{ tempPassword?: string; email?: string } | null>(null);
 
   const setToast = (message: string) => {
     setFlash(message);
@@ -40,18 +42,44 @@ export default function ManageClubsPage() {
   const createClub = async () => {
     if (!newClub.name.trim()) return;
     setBusy(true);
+    setInviteResult(null);
+
+    // 1. Create the club
     const response = await fetch(`${API}/clubs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newClub),
     }).then((r) => r.json());
+
+    if (!response.success) {
+      setBusy(false);
+      return setToast(response.error ?? 'Could not create venue');
+    }
+
+    const clubId = response.data.id;
+
+    // 2. If admin email provided, invite them
+    if (newClub.adminEmail.trim()) {
+      const inviteResponse = await fetch(`${API}/admin/invite-admin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newClub.adminEmail.trim(), clubId }),
+      }).then((r) => r.json());
+
+      if (inviteResponse.success && inviteResponse.data?.tempPassword) {
+        setInviteResult({
+          tempPassword: inviteResponse.data.tempPassword,
+          email: inviteResponse.data.email,
+        });
+      } else if (!inviteResponse.success) {
+        setToast(`Venue created but admin invite failed: ${inviteResponse.error}`);
+      }
+    }
+
     setBusy(false);
-
-    if (!response.success) return setToast(response.error ?? 'Could not create venue');
-
-    setNewClub({ name: '', city: '', organizationNumber: '', timezone: 'Europe/Stockholm' });
+    setNewClub({ name: '', city: '', organizationNumber: '', timezone: 'Europe/Stockholm', adminEmail: '' });
     await load();
-    setToast('Venue created');
+    if (!inviteResult) setToast('Venue created');
   };
 
   return (
@@ -65,15 +93,33 @@ export default function ManageClubsPage() {
       {isSuperadmin && (
         <div style={{ marginBottom: 14, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14 }}>
           <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 14 }}>Skapa ny venue</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr', gap: 8, alignItems: 'center' }}>
             <input value={newClub.name} onChange={(e) => setNewClub((prev) => ({ ...prev, name: e.target.value }))} placeholder="Namn" style={inputStyle} />
             <input value={newClub.city} onChange={(e) => setNewClub((prev) => ({ ...prev, city: e.target.value }))} placeholder="Stad" style={inputStyle} />
             <input value={newClub.organizationNumber} onChange={(e) => setNewClub((prev) => ({ ...prev, organizationNumber: e.target.value }))} placeholder="Org.nr" style={inputStyle} />
             <input value={newClub.timezone} onChange={(e) => setNewClub((prev) => ({ ...prev, timezone: e.target.value }))} placeholder="Timezone" style={inputStyle} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center', marginTop: 8 }}>
+            <input value={newClub.adminEmail} onChange={(e) => setNewClub((prev) => ({ ...prev, adminEmail: e.target.value }))} placeholder="Admin email (valfritt — bjuder in som admin)" style={inputStyle} type="email" />
             <button className="btn btn-primary" onClick={createClub} disabled={busy || !newClub.name.trim()}>
-              Skapa
+              {busy ? 'Skapar...' : 'Skapa venue'}
             </button>
           </div>
+        </div>
+      )}
+      {inviteResult?.tempPassword && (
+        <div style={{ marginBottom: 14, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 12, padding: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#166534', marginBottom: 6 }}>Admin-konto skapat</div>
+          <div style={{ fontSize: 13, color: '#15803d', marginBottom: 4 }}>
+            E-post: <strong>{inviteResult.email}</strong>
+          </div>
+          <div style={{ fontSize: 13, color: '#15803d', marginBottom: 8 }}>
+            Engångslösenord: <code style={{ background: '#dcfce7', padding: '2px 8px', borderRadius: 6, fontWeight: 700, fontSize: 15 }}>{inviteResult.tempPassword}</code>
+          </div>
+          <div style={{ fontSize: 11, color: '#166534' }}>
+            Skicka detta till adminen. De måste byta lösenord vid första inloggningen.
+          </div>
+          <button onClick={() => setInviteResult(null)} style={{ marginTop: 8, fontSize: 11, color: '#166534', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>Stäng</button>
         </div>
       )}
       {loading ? <div className="loading">Laddar...</div> : clubs.length === 0 ? (
