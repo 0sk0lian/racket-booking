@@ -94,6 +94,28 @@ export async function PATCH(request: NextRequest) {
 
     const price = typeData?.price ?? 0;
 
+    // Apply form answers to user profile (phone, birth_date, etc.)
+    const formAnswers = data.form_answers as Record<string, unknown> | null;
+    if (formAnswers && Object.keys(formAnswers).length > 0) {
+      const profileUpdates: Record<string, unknown> = {};
+      // Map common form field keys to user columns
+      for (const [key, val] of Object.entries(formAnswers)) {
+        const k = key.toLowerCase();
+        if ((k === 'telefon' || k === 'phone' || k === 'phone_number' || k === 'parent_phone') && val) {
+          profileUpdates.phone_number = String(val);
+        }
+        if ((k === 'födelsedatum' || k === 'birth_date' || k === 'birthdate' || k === 'age') && val) {
+          // If it looks like a date, save as birth_date
+          if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            profileUpdates.birth_date = val;
+          }
+        }
+      }
+      if (Object.keys(profileUpdates).length > 0) {
+        await supabase.from('users').update(profileUpdates).eq('id', data.user_id);
+      }
+    }
+
     if (price > 0) {
       // Create invoice — membership stays "approved" until paid
       const invoiceRes = await fetch(new URL('/api/invoices', request.url).toString(), {
@@ -119,8 +141,8 @@ export async function PATCH(request: NextRequest) {
       });
 
       return NextResponse.json({ success: true, data, invoice: invoiceRes.data ?? null });
-    } else {
-      // Free membership — activate directly
+    } else if (typeData) {
+      // Explicitly free membership type (price=0 but type EXISTS) — activate directly
       await supabase.from('club_memberships').update({
         status: 'active',
         payment_status: 'free',
@@ -140,6 +162,17 @@ export async function PATCH(request: NextRequest) {
       });
 
       return NextResponse.json({ success: true, data: { ...data, status: 'active', payment_status: 'free' } });
+    } else {
+      // No membership type found — stay in 'approved', admin must handle manually
+      await sendNotification({
+        userId: data.user_id, clubId: data.club_id,
+        type: 'membership.approved',
+        title: 'Ansökan godkänd',
+        body: 'Din ansökan har godkänts av klubben.',
+        entityType: 'membership', entityId: id, sendEmail: true,
+      });
+
+      return NextResponse.json({ success: true, data });
     }
   }
 
