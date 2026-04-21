@@ -1,24 +1,34 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Sidebar } from './sidebar';
 import { GlobalSearch } from '../../components/GlobalSearch';
 import { NotificationBell } from '../../components/NotificationBell';
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
-  // Apply saved theme on mount so it takes effect before Sidebar renders
+  const [isSuperadmin, setIsSuperadmin] = useState(false);
+  const [userName, setUserName] = useState<string | undefined>();
+
   useEffect(() => {
+    // Apply saved theme
     const saved = localStorage.getItem('theme');
     if (saved === 'dark' || saved === 'light') {
       document.documentElement.dataset.theme = saved;
     }
+
+    // Fetch user role for sidebar visibility
+    fetch('/api/users/me').then(r => r.json()).then(r => {
+      if (r.data) {
+        setIsSuperadmin(r.data.role === 'superadmin');
+        setUserName(r.data.full_name ?? r.data.email ?? undefined);
+      }
+    }).catch(() => {});
   }, []);
 
   return (
     <div className="layout">
-      <Sidebar />
+      <Sidebar isSuperadmin={isSuperadmin} userName={userName} />
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        {/* Top bar */}
         <div style={{
           display: 'flex',
           justifyContent: 'flex-end',

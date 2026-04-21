@@ -17,8 +17,8 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('http://localhost:3001/api/stats/overview').then(r => r.json()),
-      fetch('http://localhost:3001/api/users').then(r => r.json()),
+      fetch('/api/admin/dashboard').then(r => r.json()).then(r => ({ data: { totalMatches: 0, totalBookings: r.data?.today_bookings ?? 0, totalPlayers: r.data?.active_members ?? 0, totalCourts: 0, sportBreakdown: { padel: 0, tennis: 0 }, weeksData: [], closeMatches: 0, decisiveMatches: 0 } })),
+      fetch('/api/users').then(r => r.json()),
     ]).then(([o, p]) => {
       setOverview(o.data);
       setPlayers(p.data || []);
