@@ -1,12 +1,14 @@
 /**
- * GET   /api/admin/memberships?clubId=&status= — list memberships
- * PATCH /api/admin/memberships                  — approve/reject (body: { id, status, notes? })
+ * GET    /api/admin/memberships?clubId=&status= — list memberships
+ * PATCH  /api/admin/memberships                  — approve/reject
+ * DELETE /api/admin/memberships?id=              — remove member from club
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
 import { requireAdmin, requireClubAccess, scopeClubIdsForAdmin } from '../../../../lib/auth/guards';
 import { onMembershipApproved } from '../../../../lib/cascades';
 import { sendNotification } from '../../../../lib/notifications';
+import { generateInvoicePdf } from '../../../../lib/invoice-generator';
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
@@ -37,16 +39,16 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
 
-  const userIds = [...new Set((data ?? []).map((membership) => membership.user_id))];
+  const userIds = [...new Set((data ?? []).map((m) => m.user_id))];
   const { data: users } = userIds.length > 0
     ? await supabase.from('users').select('id, full_name, email').in('id', userIds)
     : { data: [] };
-  const userMap = new Map((users ?? []).map((user) => [user.id, user]));
+  const userMap = new Map((users ?? []).map((u) => [u.id, u]));
 
-  const enriched = (data ?? []).map((membership) => ({
-    ...membership,
-    user_name: userMap.get(membership.user_id)?.full_name ?? 'Unknown',
-    user_email: userMap.get(membership.user_id)?.email ?? null,
+  const enriched = (data ?? []).map((m) => ({
+    ...m,
+    user_name: userMap.get(m.user_id)?.full_name ?? 'Unknown',
+    user_email: userMap.get(m.user_id)?.email ?? null,
   }));
 
   return NextResponse.json({ success: true, data: enriched });
@@ -62,7 +64,13 @@ export async function PATCH(request: NextRequest) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const { data: membership } = await supabase.from('club_memberships').select('id, club_id').eq('id', id).single();
+
+  // Fetch full membership data (need user_id, club_id, membership_type, form_answers)
+  const { data: membership } = await supabase
+    .from('club_memberships')
+    .select('*')
+    .eq('id', id)
+    .single();
   if (!membership) {
     return NextResponse.json({ success: false, error: 'Membership not found' }, { status: 404 });
   }
@@ -80,32 +88,21 @@ export async function PATCH(request: NextRequest) {
   const { data, error } = await supabase.from('club_memberships').update(updates).eq('id', id).select().single();
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
 
-  // When form is approved: create an invoice and wait for payment
-  // status='approved' = form reviewed OK, invoice sent, waiting for payment
-  // status='active' = paid and activated (can also be set directly for free memberships)
+  // --- APPROVED: form reviewed, create invoice if price > 0 ---
   if (status === 'approved' && data) {
-    // Check if membership type has a price > 0
-    const { data: typeData } = await supabase.from('membership_types')
-      .select('price, interval')
-      .eq('club_id', data.club_id)
-      .eq('name', data.membership_type)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    const price = typeData?.price ?? 0;
-
-    // Apply form answers to user profile (phone, birth_date, etc.)
-    const formAnswers = data.form_answers as Record<string, unknown> | null;
-    if (formAnswers && Object.keys(formAnswers).length > 0) {
+    // Apply form answers to user profile
+    const formAnswers = (data.form_answers ?? {}) as Record<string, unknown>;
+    if (Object.keys(formAnswers).length > 0) {
       const profileUpdates: Record<string, unknown> = {};
-      // Map common form field keys to user columns
       for (const [key, val] of Object.entries(formAnswers)) {
         const k = key.toLowerCase();
         if ((k === 'telefon' || k === 'phone' || k === 'phone_number' || k === 'parent_phone') && val) {
           profileUpdates.phone_number = String(val);
         }
-        if ((k === 'födelsedatum' || k === 'birth_date' || k === 'birthdate' || k === 'age') && val) {
-          // If it looks like a date, save as birth_date
+        if ((k === 'personnummer' || k === 'social_number' || k === 'ssn') && val) {
+          // Store personnummer in form_answers — no dedicated column, but searchable
+        }
+        if ((k === 'födelsedatum' || k === 'birth_date' || k === 'birthdate') && val) {
           if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}$/)) {
             profileUpdates.birth_date = val;
           }
@@ -116,33 +113,86 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
+    // Check membership type pricing
+    const { data: typeData } = await supabase.from('membership_types')
+      .select('price, interval')
+      .eq('club_id', data.club_id)
+      .eq('name', data.membership_type)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    const price = typeData?.price ?? 0;
+
     if (price > 0) {
-      // Create invoice — membership stays "approved" until paid
-      const invoiceRes = await fetch(new URL('/api/invoices', request.url).toString(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', cookie: request.headers.get('cookie') ?? '' },
-        body: JSON.stringify({
-          clubId: data.club_id,
-          userId: data.user_id,
-          membershipId: data.id,
-          amount: price,
-        }),
-      }).then(r => r.json());
+      // Create invoice directly (no internal fetch)
+      const { data: club } = await supabase.from('clubs')
+        .select('name, organization_number, contact_email, contact_phone, city')
+        .eq('id', data.club_id).single();
+      const { data: user } = await supabase.from('users')
+        .select('full_name, email')
+        .eq('id', data.user_id).single();
+
+      const invoiceNumber = `INV-${Date.now().toString(36).toUpperCase()}`;
+      const today = new Date().toISOString().split('T')[0];
+      const due = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+      const items = [{ description: `Medlemskap: ${data.membership_type}`, amount: price }];
+
+      // Generate PDF
+      const pdfBytes = await generateInvoicePdf({
+        invoiceNumber,
+        date: today,
+        dueDate: due,
+        clubName: club?.name ?? '',
+        clubOrgNumber: club?.organization_number ?? undefined,
+        clubEmail: club?.contact_email ?? undefined,
+        clubPhone: club?.contact_phone ?? undefined,
+        clubCity: club?.city ?? undefined,
+        memberName: user?.full_name ?? 'Unknown',
+        memberEmail: user?.email ?? '',
+        items,
+        total: price,
+        currency: 'SEK',
+      });
+
+      const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
+
+      const { data: invoice } = await supabase.from('invoices').insert({
+        club_id: data.club_id,
+        user_id: data.user_id,
+        membership_id: data.id,
+        invoice_number: invoiceNumber,
+        amount: price,
+        currency: 'SEK',
+        description: items[0].description,
+        line_items: items,
+        status: 'sent',
+        due_date: due,
+        pdf_url: `data:application/pdf;base64,${pdfBase64}`,
+      }).select().single();
+
+      // Link invoice to membership
+      if (invoice) {
+        await supabase.from('club_memberships').update({
+          invoice_id: invoice.id,
+          payment_status: 'unpaid',
+        }).eq('id', data.id);
+      }
 
       await sendNotification({
         userId: data.user_id,
         clubId: data.club_id,
         type: 'membership.approved',
         title: 'Ansökan godkänd — faktura skickad',
-        body: `Din ansökan har godkänts! En faktura på ${price} SEK har skapats. Medlemskapet aktiveras när betalningen registreras.`,
+        body: `Din ansökan har godkänts! En faktura på ${price} SEK har skapats.`,
         entityType: 'membership',
         entityId: id,
         sendEmail: true,
       });
 
-      return NextResponse.json({ success: true, data, invoice: invoiceRes.data ?? null });
+      return NextResponse.json({ success: true, data, invoice: invoice ?? null });
+
     } else if (typeData) {
-      // Explicitly free membership type (price=0 but type EXISTS) — activate directly
+      // Free membership type — activate directly
       await supabase.from('club_memberships').update({
         status: 'active',
         payment_status: 'free',
@@ -162,8 +212,9 @@ export async function PATCH(request: NextRequest) {
       });
 
       return NextResponse.json({ success: true, data: { ...data, status: 'active', payment_status: 'free' } });
+
     } else {
-      // No membership type found — stay in 'approved', admin must handle manually
+      // No type found — stay approved, admin handles manually
       await sendNotification({
         userId: data.user_id, clubId: data.club_id,
         type: 'membership.approved',
@@ -176,7 +227,7 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  // Direct activation (e.g., admin manually sets active)
+  // --- DIRECT ACTIVATION ---
   if (status === 'active' && data) {
     await onMembershipApproved({
       id: data.id, club_id: data.club_id, user_id: data.user_id,
@@ -209,7 +260,6 @@ export async function DELETE(request: NextRequest) {
   const access = await requireClubAccess(membership.club_id);
   if (!access.ok) return access.response;
 
-  // Hard delete the membership
   const { error } = await supabase.from('club_memberships').delete().eq('id', id);
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
   return NextResponse.json({ success: true });

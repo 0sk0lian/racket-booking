@@ -70,13 +70,21 @@ export default function UsersPage() {
 
   const updateMembership = async (membershipId: string, status: string) => {
     setEditBusy(true);
-    await fetch(`${API}/admin/memberships`, {
+    const res = await fetch(`${API}/admin/memberships`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: membershipId, status }),
-    });
+    }).then(r => r.json());
     setEditBusy(false);
-    flash(`Membership ${status}`);
+    if (!res.success) {
+      flash(res.error ?? 'Något gick fel');
+      return;
+    }
+    const labels: Record<string, string> = { approved: 'Ansökan godkänd', active: 'Medlemskap aktiverat', suspended: 'Medlemskap pausat', cancelled: 'Avvisad' };
+    flash(labels[status] ?? `Status: ${status}`);
+    // Refresh both list and detail
+    const listRes = await fetch(`${API}/users?clubId=${clubId}`).then(r => r.json());
+    setUsers(listRes.data || []);
     if (expandedId) {
       const detailRes = await fetch(`${API}/features/player-detail/${expandedId}?clubId=${clubId}`).then(r => r.json());
       setDetail(detailRes.data);
