@@ -27,6 +27,10 @@ export async function PATCH(
   if (body.contactPhone !== undefined) updates.contact_phone = body.contactPhone;
   if (body.address !== undefined) updates.address = body.address;
   if (body.city !== undefined) updates.city = body.city;
+  if (body.logoUrl !== undefined) updates.logo_url = body.logoUrl;
+  if (body.coverImageUrl !== undefined) updates.cover_image_url = body.coverImageUrl;
+  if (body.accentColor !== undefined) updates.accent_color = body.accentColor;
+  if (body.slug !== undefined) updates.slug = body.slug;
   updates.updated_at = new Date().toISOString();
 
   const { data, error } = await supabase

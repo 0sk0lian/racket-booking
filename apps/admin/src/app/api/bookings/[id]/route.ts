@@ -42,11 +42,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   // Check cancellation window
   const { data: court } = await supabase.from('courts').select('club_id').eq('id', booking.court_id).single();
   if (court) {
-    const { data: venue } = await supabase.from('venue_profiles').select('booking_rules').eq('club_id', court.club_id).single();
-    const cancelHours = venue?.booking_rules?.cancellation_hours ?? 0;
-    const deadline = new Date(new Date(booking.time_slot_start).getTime() - cancelHours * 3600000);
-    if (new Date() > deadline) {
-      return NextResponse.json({ success: false, error: `Cannot cancel less than ${cancelHours}h before the booking` }, { status: 400 });
+    const { data: venue } = await supabase
+      .from('venue_profiles')
+      .select('cancellation_hours')
+      .eq('club_id', court.club_id)
+      .maybeSingle();
+
+    const cancellationHours = venue?.cancellation_hours ?? 24;
+    const bookingStart = new Date(booking.time_slot_start);
+    const hoursUntil = (bookingStart.getTime() - Date.now()) / 3600000;
+
+    if (hoursUntil < cancellationHours) {
+      return NextResponse.json({
+        success: false,
+        error: `Cannot cancel within ${cancellationHours} hours of the booking`,
+      }, { status: 400 });
     }
   }
 

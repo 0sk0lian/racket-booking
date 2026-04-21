@@ -1,7 +1,7 @@
 ﻿'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // Top-level nav items — always visible
 const mainNav = [
@@ -77,6 +77,22 @@ export function Sidebar() {
   };
 
   const [openSection, setOpenSection] = useState<string | null>(getOpenSection);
+
+  // Dark mode
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  useEffect(() => {
+    const saved = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (saved === 'dark' || saved === 'light') {
+      setTheme(saved);
+      document.documentElement.dataset.theme = saved;
+    }
+  }, []);
+  const toggleTheme = () => {
+    const next = theme === 'light' ? 'dark' : 'light';
+    setTheme(next);
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem('theme', next);
+  };
 
   const toggleSection = (key: string, hub: string) => {
     if (openSection === key) {
@@ -170,8 +186,25 @@ export function Sidebar() {
         );
       })}
 
+      {/* Theme toggle */}
+      <div style={{ padding: '0 20px 4px', marginTop: 'auto' }}>
+        <button
+          onClick={toggleTheme}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            width: '100%', padding: '8px 12px', borderRadius: 8,
+            border: '1px solid var(--border)', background: 'var(--bg-input)',
+            color: 'var(--text-muted)', fontSize: 12, fontWeight: 500,
+            cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+          }}
+        >
+          <span style={{ fontSize: 14 }}>{theme === 'light' ? '\u263E' : '\u2600'}</span>
+          {theme === 'light' ? 'Dark mode' : 'Light mode'}
+        </button>
+      </div>
+
       {/* User */}
-      <div className="sidebar-user">
+      <div className="sidebar-user" style={{ marginTop: 0 }}>
         <div className="sidebar-user-avatar">AD</div>
         <div>
           <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>Admin</div>

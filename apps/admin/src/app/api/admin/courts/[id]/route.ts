@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../lib/supabase/server';
 import { requireAdmin, requireClubAccess } from '../../../../../lib/auth/guards';
+import { onCourtDeactivated } from '../../../../../lib/cascades';
 
 export async function PATCH(
   request: NextRequest,
@@ -49,6 +50,12 @@ export async function PATCH(
 
   if (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+
+  // Cascade: cancel future bookings when a court is deactivated
+  if (body.isActive === false) {
+    const cancelledCount = await onCourtDeactivated(id);
+    return NextResponse.json({ success: true, data, cancelledBookings: cancelledCount });
   }
 
   return NextResponse.json({ success: true, data });

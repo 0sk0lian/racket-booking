@@ -27,11 +27,20 @@ interface DashboardData {
 
 interface Club { id: string; name: string; }
 
+interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  published_at: string;
+  pinned: boolean;
+}
+
 export default function DashboardPage() {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [clubId, setClubId] = useState('');
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   useEffect(() => {
     fetch(`${API}/clubs`).then(r => r.json()).then(r => {
@@ -47,6 +56,9 @@ export default function DashboardPage() {
       setData(r.data ?? null);
       setLoading(false);
     });
+    fetch(`${API}/announcements?clubId=${clubId}&limit=3`).then(r => r.json()).then(r => {
+      setAnnouncements(r.data ?? []);
+    }).catch(() => {});
   }, [clubId]);
 
   const h = new Date().getHours();
@@ -180,6 +192,44 @@ export default function DashboardPage() {
               }}>
                 Visa
               </Link>
+            </div>
+          )}
+
+          {/* ---- Nyheter (Announcements) ---- */}
+          {announcements.length > 0 && (
+            <div style={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: 14,
+              padding: 20,
+              marginBottom: 24,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <h2 style={{ fontSize: 15, fontWeight: 700 }}>Nyheter</h2>
+                <Link href="/announcements" style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>
+                  Skapa nyhet &rarr;
+                </Link>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {announcements.slice(0, 3).map(a => (
+                  <div key={a.id} style={{
+                    padding: '12px 14px',
+                    background: 'var(--bg-body)',
+                    borderRadius: 10,
+                    borderLeft: a.pinned ? '3px solid #f59e0b' : '3px solid transparent',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{a.title}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-dim)', flexShrink: 0, marginLeft: 12 }}>
+                        {new Date(a.published_at).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                      {a.body.length > 100 ? a.body.slice(0, 100) + '...' : a.body}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

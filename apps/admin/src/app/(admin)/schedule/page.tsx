@@ -32,6 +32,7 @@ interface Booking {
   contractId: string | null; recurrenceDay: number | null;
   eventName: string | null; eventMaxParticipants: number | null;
   attendeeCount: number; eventAttendeeIds: string[];
+  attendancePresent: number; attendanceTotal: number;
   notes: string | null; isSplitPayment: boolean;
 }
 interface CourtSchedule { courtId: string; courtName: string; sportType: string; baseRate: number; bookings: Booking[]; }
@@ -563,10 +564,11 @@ function bookingToItem(b: Booking, courtId: string, dayKey: string): GridItem<Bo
   if (b.bookingType === 'training' && b.trainerName) subtitle = b.trainerName;
   else if (b.bookingType === 'event') subtitle = `${b.attendeeCount}/${b.eventMaxParticipants ?? '?'}`;
   else if (b.bookingType === 'contract') subtitle = 'Weekly';
+  const caption = b.attendanceTotal > 0 ? `${b.attendancePresent}/${b.attendanceTotal}` : undefined;
   return {
     id: b.id, court_id: courtId, day_key: dayKey,
     start_hour: b.startHour, end_hour: b.endHour,
-    variant, title, subtitle, payload: b,
+    variant, title, subtitle, caption, payload: b,
   };
 }
 

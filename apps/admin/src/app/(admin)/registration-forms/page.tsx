@@ -17,6 +17,7 @@ export default function RegistrationFormsPage() {
   const [fSeason, setFSeason] = useState('Vår 2026'); const [fGroup, setFGroup] = useState('');
   const [fParentGroup, setFParentGroup] = useState('');
   const [fMax, setFMax] = useState('24'); const [saving, setSaving] = useState(false);
+  const [fOpenDate, setFOpenDate] = useState(''); const [fCloseDate, setFCloseDate] = useState('');
 
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(''), 4000); };
 
@@ -40,9 +41,9 @@ export default function RegistrationFormsPage() {
 
     await fetch(`${API}/registration-forms`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clubId, title: fTitle, description: fDesc, sportType: fSport, category: fCat, season: fSeason, targetGroupId: fGroup || null, parentGroupId: fParentGroup || null, fields, maxSubmissions: Number(fMax) || null }),
+      body: JSON.stringify({ clubId, title: fTitle, description: fDesc, sportType: fSport, category: fCat, season: fSeason, targetGroupId: fGroup || null, parentGroupId: fParentGroup || null, fields, maxSubmissions: Number(fMax) || null, openDate: fOpenDate || null, closeDate: fCloseDate || null }),
     });
-    flash('Formulär skapat'); setShowCreate(false); setFTitle(''); setFDesc('');
+    flash('Formulär skapat'); setShowCreate(false); setFTitle(''); setFDesc(''); setFOpenDate(''); setFCloseDate('');
     setSaving(false); await reload();
   };
 
@@ -83,6 +84,8 @@ export default function RegistrationFormsPage() {
             <Fld label="Placera i befintlig grupp"><select value={fGroup} onChange={e => setFGroup(e.target.value)} style={inp}><option value="">Skapa ny grupp (från titel)</option>{groups.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></Fld>
             <Fld label="Masterkategori (övergrupp)"><select value={fParentGroup} onChange={e => setFParentGroup(e.target.value)} style={inp}><option value="">Ingen</option>{groups.filter((g: any) => g.is_master_category).map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></Fld>
             <Fld label="Max anmälningar"><input type="number" value={fMax} onChange={e => setFMax(e.target.value)} style={inp} /></Fld>
+            <Fld label="Öppnar"><input type="datetime-local" value={fOpenDate} onChange={e => setFOpenDate(e.target.value)} style={inp} /></Fld>
+            <Fld label="Stänger"><input type="datetime-local" value={fCloseDate} onChange={e => setFCloseDate(e.target.value)} style={inp} /></Fld>
           </div>
           <p style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 14 }}>En grupp med formulärets titel skapas automatiskt. Alla som anmäler sig placeras direkt i gruppen (och i masterkategorin om vald). Fält skapas baserat på kategori och kan redigeras efter.</p>
           <button className="btn btn-primary" onClick={handleCreate} disabled={saving || !fTitle}>{saving ? 'Skapar...' : 'Skapa formulär'}</button>

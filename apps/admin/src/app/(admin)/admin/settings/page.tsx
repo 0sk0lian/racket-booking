@@ -7,6 +7,7 @@ interface Club {
   id: string; name: string; organization_number: string; is_non_profit: boolean;
   timezone: string; stripe_account_id: string | null; contact_email: string | null;
   contact_phone: string | null; address: string | null; city: string | null;
+  logo_url: string | null; cover_image_url: string | null; accent_color: string | null; slug: string | null;
 }
 
 export default function ClubSettingsPage() {
@@ -37,6 +38,8 @@ export default function ClubSettingsPage() {
         name: club.name, isNonProfit: club.is_non_profit,
         contactEmail: club.contact_email, contactPhone: club.contact_phone,
         address: club.address, city: club.city, stripeAccountId: club.stripe_account_id,
+        logoUrl: club.logo_url, coverImageUrl: club.cover_image_url,
+        accentColor: club.accent_color, slug: club.slug,
       }),
     });
     // Refresh clubs list
@@ -125,6 +128,31 @@ export default function ClubSettingsPage() {
           <div>
             <label style={label}>Phone</label>
             <input value={club.contact_phone || ''} onChange={e => setClub({ ...club, contact_phone: e.target.value })} style={input} placeholder="+46..." />
+          </div>
+        </div>
+
+        {/* Branding */}
+        <div style={card}>
+          <h3 style={sectionTitle}>Branding</h3>
+          <div style={{ marginBottom: 16 }}>
+            <label style={label}>Slug</label>
+            <input value={club.slug || ''} onChange={e => setClub({ ...club, slug: e.target.value })} style={input} placeholder="my-club" />
+            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>URL-friendly identifier for the club</span>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={label}>Logo URL</label>
+            <input value={club.logo_url || ''} onChange={e => setClub({ ...club, logo_url: e.target.value })} style={input} placeholder="https://example.com/logo.png" />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={label}>Cover Image URL</label>
+            <input value={club.cover_image_url || ''} onChange={e => setClub({ ...club, cover_image_url: e.target.value })} style={input} placeholder="https://example.com/cover.jpg" />
+          </div>
+          <div>
+            <label style={label}>Accent Color</label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input type="color" value={club.accent_color || '#6366f1'} onChange={e => setClub({ ...club, accent_color: e.target.value })} style={{ width: 40, height: 36, padding: 2, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-input)', cursor: 'pointer' }} />
+              <input value={club.accent_color || ''} onChange={e => setClub({ ...club, accent_color: e.target.value })} style={input} placeholder="#6366f1" />
+            </div>
           </div>
         </div>
 

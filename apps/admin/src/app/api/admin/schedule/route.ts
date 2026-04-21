@@ -7,7 +7,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
-import { requireClubAccess } from '../../../../lib/auth/guards';
+import { requireStaffAccess } from '../../../../lib/auth/guards';
 
 function enrichBooking(b: any, userMap: Map<string, any>, attendanceMap: Map<string, { present: number; total: number }>) {
   const startHour = new Date(b.time_slot_start).getHours();
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
   if (!clubId || (!singleDate && (!dateFrom || !dateTo))) {
     return NextResponse.json({ success: false, error: 'clubId and (date OR dateFrom+dateTo) required' }, { status: 400 });
   }
-  const access = await requireClubAccess(clubId);
+  const access = await requireStaffAccess(clubId);
   if (!access.ok) return access.response;
 
   const supabase = createSupabaseAdminClient();

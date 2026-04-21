@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
   if (!admin.ok) return admin.response;
 
   const body = await request.json();
-  const { clubId, title, description, sportType, category, season, targetGroupId, parentGroupId, fields, maxSubmissions } = body;
+  const { clubId, title, description, sportType, category, season, targetGroupId, parentGroupId, fields, maxSubmissions, openDate, closeDate } = body;
 
   if (!clubId || !title || !sportType || !category || !season) {
     return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
@@ -143,6 +143,8 @@ export async function POST(request: NextRequest) {
       fields: fields || [],
       status: 'draft',
       max_submissions: maxSubmissions || null,
+      open_date: openDate ?? null,
+      close_date: closeDate ?? null,
     })
     .select('*')
     .single();

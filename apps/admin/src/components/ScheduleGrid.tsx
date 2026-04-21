@@ -82,9 +82,9 @@ const DEFAULT_HOURS = Array.from({ length: 15 }, (_, i) => i + 7);
 
 const VARIANT: Record<GridItem['variant'], { bg: string; border: string; text: string }> = {
   regular:  { bg: '#ecfdf5', border: '#10b981', text: '#059669' },
-  training: { bg: '#eef2ff', border: '#6366f1', text: '#4f46e5' },
-  contract: { bg: '#fef3c7', border: '#f59e0b', text: '#b45309' },
-  event:    { bg: '#fce7f3', border: '#ec4899', text: '#be185d' },
+  training: { bg: '#eff6ff', border: '#3b82f6', text: '#1d4ed8' },
+  contract: { bg: '#f5f3ff', border: '#8b5cf6', text: '#6d28d9' },
+  event:    { bg: '#fffbeb', border: '#f59e0b', text: '#b45309' },
   template: { bg: '#f0fdf4', border: '#22c55e', text: '#15803d' },
 };
 
@@ -216,7 +216,7 @@ export function ScheduleGrid<P = unknown>({
                             {item.subtitle}
                           </div>
                         )}
-                        {item.caption && rowHeight > 50 && (
+                        {item.caption && rowHeight > 38 && (
                           <div style={{ fontSize: 9, color: v.text, opacity: 0.55, marginTop: 1 }}>{item.caption}</div>
                         )}
                       </div>

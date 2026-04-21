@@ -77,9 +77,19 @@ export async function POST(request: NextRequest) {
 
   const { data: venue } = await supabase
     .from('venue_profiles')
-    .select('booking_rules, opening_hours')
+    .select('booking_rules, opening_hours, slot_duration_minutes')
     .eq('club_id', court.club_id)
     .maybeSingle();
+
+  // Validate slot duration increments
+  const slotMinutes = venue?.slot_duration_minutes ?? 60;
+  const durationMinutes = (end.getTime() - start.getTime()) / 60000;
+  if (durationMinutes % slotMinutes !== 0) {
+    return NextResponse.json({
+      success: false,
+      error: `Bookings must be in ${slotMinutes}-minute increments`,
+    }, { status: 400 });
+  }
 
   if (venue?.booking_rules?.max_days_ahead) {
     const maxDate = new Date();

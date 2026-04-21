@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../lib/supabase/server';
 import { requireAdmin, requireClubAccess } from '../../../../../lib/auth/guards';
+import { onPlayerRemovedFromGroup } from '../../../../../lib/cascades';
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
@@ -9,7 +10,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { id } = await params;
   const supabase = createSupabaseAdminClient();
 
-  const { data: group } = await supabase.from('groups').select('club_id').eq('id', id).single();
+  const { data: group } = await supabase.from('groups').select('club_id, player_ids').eq('id', id).single();
   if (!group) return NextResponse.json({ success: false, error: 'Group not found' }, { status: 404 });
 
   const access = await requireClubAccess(group.club_id);
@@ -34,8 +35,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (body[camel] !== undefined) updates[snake] = body[camel];
   }
 
+  // Detect removed players before the update
+  const removedPlayerIds: string[] = [];
+  if (body.playerIds !== undefined) {
+    const existingPlayerIds: string[] = group.player_ids ?? [];
+    const newPlayerIds: string[] = body.playerIds;
+    removedPlayerIds.push(...existingPlayerIds.filter(pid => !newPlayerIds.includes(pid)));
+  }
+
   const { data, error } = await supabase.from('groups').update(updates).eq('id', id).select().single();
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+
+  // Cascade: remove players from linked training sessions
+  for (const userId of removedPlayerIds) {
+    onPlayerRemovedFromGroup({ userId, groupId: id, clubId: group.club_id }).catch(() => {});
+  }
+
   return NextResponse.json({ success: true, data });
 }
 
