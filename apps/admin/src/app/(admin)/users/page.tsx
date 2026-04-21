@@ -315,6 +315,24 @@ export default function UsersPage() {
                                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Groups</span><span style={{ fontWeight: 600 }}>{detail.groups.length}</span></div>
                                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Forms</span><span style={{ fontWeight: 600 }}>{detail.submissions.length}</span></div>
                                 </div>
+                                {/* Form answers from membership application */}
+                                {detail.memberships.some((m: any) => m.form_answers && Object.keys(m.form_answers).length > 0) && (
+                                  <div style={{ marginTop: 10 }}>
+                                    <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Formulärsvar</div>
+                                    {detail.memberships.filter((m: any) => m.form_answers && Object.keys(m.form_answers).length > 0).map((m: any, idx: number) => (
+                                      <div key={idx} style={{ background: 'var(--bg-input)', borderRadius: 8, padding: '8px 12px', marginBottom: 4 }}>
+                                        <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4 }}>{m.membership_type} — {m.club_name}</div>
+                                        {Object.entries(m.form_answers as Record<string, unknown>).map(([key, val]) => (
+                                          <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '2px 0' }}>
+                                            <span style={{ color: 'var(--text-muted)' }}>{key.replace(/_/g, ' ')}</span>
+                                            <span style={{ fontWeight: 600 }}>{String(val)}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
                                 {/* Edit actions */}
                                 <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
                                   <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Actions</div>
