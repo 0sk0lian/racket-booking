@@ -164,6 +164,14 @@ export default function UsersPage() {
     <div>
       <div className="page-header"><h1>Medlemmar</h1></div>
       {toast && <div className="toast">{toast}</div>}
+      {users.filter(u => u.membership_status === 'pending').length > 0 && (
+        <div style={{ marginBottom: 16, padding: '12px 18px', borderRadius: 10, background: '#fef3c7', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 18 }}>&#9888;</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#92400e' }}>
+            {users.filter(u => u.membership_status === 'pending').length} väntande medlemsansökningar kräver granskning
+          </span>
+        </div>
+      )}
 
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 24 }}>
         <div className="stat-card">
@@ -228,15 +236,14 @@ export default function UsersPage() {
                 <th>Padel Elo</th>
                 <th>Tennis Elo</th>
                 <th>Matches</th>
-                <th>Active</th>
-                <th>Membership</th>
+                <th>Medlemskap</th>
                 <th>Profile</th>
               </tr>
             </thead>
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '18px 8px' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '18px 8px' }}>
                     No members match the current filters.
                   </td>
                 </tr>
@@ -255,11 +262,22 @@ export default function UsersPage() {
                     <td><span className="badge badge-blue">{user.elo_padel}</span></td>
                     <td><span className="badge badge-green">{user.elo_tennis}</span></td>
                     <td>{user.matches_played}</td>
-                    <td><span className={`badge ${user.is_active ? 'badge-green' : 'badge-yellow'}`}>{user.is_active ? 'Yes' : 'No'}</span></td>
                     <td>
-                      <span className={`badge ${user.membership_type ? 'badge-blue' : 'badge-yellow'}`}>
-                        {user.membership_type ?? 'none'}
-                      </span>
+                      {user.membership_status === 'pending' ? (
+                        <span style={{ padding: '3px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', animation: 'pulse-dot 2s infinite' }}>
+                          VÄNTANDE
+                        </span>
+                      ) : user.membership_status === 'approved' ? (
+                        <span style={{ padding: '3px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: '#dbeafe', color: '#1d4ed8', border: '1px solid #93c5fd' }}>
+                          Inväntar betalning
+                        </span>
+                      ) : user.membership_status === 'active' ? (
+                        <span className="badge badge-green">{user.membership_type ?? 'Aktiv'}</span>
+                      ) : user.membership_status === 'suspended' ? (
+                        <span className="badge badge-red">Pausad</span>
+                      ) : (
+                        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>—</span>
+                      )}
                     </td>
                     <td>
                       <Link
@@ -275,7 +293,7 @@ export default function UsersPage() {
 
                   {expandedId === user.id && (
                     <tr>
-                      <td colSpan={9} style={{ padding: 0, background: 'var(--bg-body)' }}>
+                      <td colSpan={8} style={{ padding: 0, background: 'var(--bg-body)' }}>
                         {detailLoading ? (
                           <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>Loading details...</div>
                         ) : detail ? (
