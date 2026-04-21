@@ -44,6 +44,44 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'player' | 'trainer' | 'admin' | 'superadmin'>('all');
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [editBusy, setEditBusy] = useState(false);
+  const [toast, setToast] = useState('');
+  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(''), 4000); };
+
+  const updateUser = async (userId: string, updates: Record<string, unknown>) => {
+    setEditBusy(true);
+    const res = await fetch(`${API}/users/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    }).then(r => r.json());
+    setEditBusy(false);
+    if (!res.success) { flash(res.error ?? 'Could not update'); return false; }
+    flash('Updated');
+    // Refresh user list + detail
+    const listRes = await fetch(`${API}/users?clubId=${clubId}`).then(r => r.json());
+    setUsers(listRes.data || []);
+    if (expandedId === userId) {
+      const detailRes = await fetch(`${API}/features/player-detail/${userId}?clubId=${clubId}`).then(r => r.json());
+      setDetail(detailRes.data);
+    }
+    return true;
+  };
+
+  const updateMembership = async (membershipId: string, status: string) => {
+    setEditBusy(true);
+    await fetch(`${API}/admin/memberships`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: membershipId, status }),
+    });
+    setEditBusy(false);
+    flash(`Membership ${status}`);
+    if (expandedId) {
+      const detailRes = await fetch(`${API}/features/player-detail/${expandedId}?clubId=${clubId}`).then(r => r.json());
+      setDetail(detailRes.data);
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -101,6 +139,7 @@ export default function UsersPage() {
   return (
     <div>
       <div className="page-header"><h1>Medlemmar</h1></div>
+      {toast && <div className="toast">{toast}</div>}
 
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 24 }}>
         <div className="stat-card">
@@ -276,14 +315,61 @@ export default function UsersPage() {
                                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Groups</span><span style={{ fontWeight: 600 }}>{detail.groups.length}</span></div>
                                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Forms</span><span style={{ fontWeight: 600 }}>{detail.submissions.length}</span></div>
                                 </div>
+                                {/* Edit actions */}
+                                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Actions</div>
+                                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                    <select
+                                      defaultValue={users.find(u => u.id === expandedId)?.role ?? 'player'}
+                                      onChange={e => updateUser(detail.id, { role: e.target.value })}
+                                      disabled={editBusy}
+                                      style={{ ...inp, minWidth: 100, padding: '4px 8px', fontSize: 11 }}
+                                    >
+                                      <option value="player">Player</option>
+                                      <option value="trainer">Trainer</option>
+                                      <option value="admin">Admin</option>
+                                    </select>
+                                    <button
+                                      className="btn btn-outline"
+                                      style={{ padding: '4px 10px', fontSize: 11 }}
+                                      disabled={editBusy}
+                                      onClick={() => {
+                                        const name = prompt('Nytt namn:', detail.full_name);
+                                        if (name) updateUser(detail.id, { fullName: name });
+                                      }}
+                                    >Byt namn</button>
+                                    <button
+                                      className="btn btn-outline"
+                                      style={{ padding: '4px 10px', fontSize: 11 }}
+                                      disabled={editBusy}
+                                      onClick={() => {
+                                        const phone = prompt('Nytt telefonnummer:', '');
+                                        if (phone !== null) updateUser(detail.id, { phoneNumber: phone });
+                                      }}
+                                    >Byt telefon</button>
+                                  </div>
+                                </div>
+
+                                {/* Memberships with actions */}
                                 {detail.memberships.length > 0 && (
                                   <div style={{ marginTop: 10 }}>
                                     <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
                                       Memberships
                                     </div>
-                                    {detail.memberships.map((membership) => (
-                                      <div key={`${membership.club_id}-${membership.status}`} style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                        {membership.club_name} - {membership.membership_type} ({membership.status})
+                                    {detail.memberships.map((membership: any) => (
+                                      <div key={`${membership.club_id}-${membership.status}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', padding: '4px 0' }}>
+                                        <span>{membership.club_name} - {membership.membership_type} ({membership.status})</span>
+                                        <div style={{ display: 'flex', gap: 4 }}>
+                                          {membership.status === 'pending' && (
+                                            <button onClick={() => updateMembership(membership.id, 'active')} disabled={editBusy} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: '1px solid #a7f3d0', background: '#ecfdf5', color: '#059669', cursor: 'pointer', fontFamily: 'inherit' }}>Godkänn</button>
+                                          )}
+                                          {membership.status === 'active' && (
+                                            <button onClick={() => updateMembership(membership.id, 'suspended')} disabled={editBusy} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit' }}>Pausa</button>
+                                          )}
+                                          {membership.status === 'suspended' && (
+                                            <button onClick={() => updateMembership(membership.id, 'active')} disabled={editBusy} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: '1px solid #a7f3d0', background: '#ecfdf5', color: '#059669', cursor: 'pointer', fontFamily: 'inherit' }}>Aktivera</button>
+                                          )}
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
