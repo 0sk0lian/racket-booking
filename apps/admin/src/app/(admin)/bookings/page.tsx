@@ -21,6 +21,9 @@ export default function BookingsPage() {
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [toast, setToast] = useState('');
+  const [busy, setBusy] = useState(false);
+  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(''), 4000); };
 
   useEffect(() => {
     fetch(`${API}/clubs`).then(r => r.json()).then(r => { setClubs(r.data ?? []); if (r.data?.length) setClubId(r.data[0].id); });
@@ -39,6 +42,29 @@ export default function BookingsPage() {
       setLoading(false);
     });
   }, [clubId, date]);
+
+  const reloadBookings = () => {
+    if (!clubId) return;
+    setLoading(true);
+    fetch(`${API}/admin/schedule?clubId=${clubId}&date=${date}`).then(r => r.json()).then(r => {
+      const all: Booking[] = [];
+      (r.data?.courts ?? []).forEach((c: CourtSchedule) => {
+        c.bookings.forEach(b => all.push({ ...b, courtName: c.courtName }));
+      });
+      all.sort((a, b) => a.startHour - b.startHour);
+      setAllBookings(all);
+      setLoading(false);
+    });
+  };
+
+  const cancelBooking = async (bookingId: string) => {
+    if (!confirm('Avboka denna bokning? Detta kan inte ångras.')) return;
+    setBusy(true);
+    const res = await fetch(`${API}/admin/bookings/${bookingId}`, { method: 'DELETE' }).then(r => r.json());
+    setBusy(false);
+    if (res.success) { flash('Bokning avbokad'); reloadBookings(); }
+    else flash(res.error ?? 'Kunde inte avboka');
+  };
 
   const filtered = allBookings.filter(b => {
     if (statusFilter !== 'all' && b.status !== statusFilter) return false;
@@ -61,6 +87,7 @@ export default function BookingsPage() {
         <h1>Bokningar</h1>
         <button className="btn btn-outline" onClick={exportCSV}>Exportera CSV</button>
       </div>
+      {toast && <div className="toast">{toast}</div>}
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <Fld label="Klubb"><select value={clubId} onChange={e => setClubId(e.target.value)} style={inp}>{clubs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Fld>
@@ -74,7 +101,7 @@ export default function BookingsPage() {
         <div className="empty-state"><p style={{ fontSize: 42, marginBottom: 8 }}>📅</p><h3>Inga bokningar denna dag</h3></div>
       ) : (
         <div className="table-wrap">
-          <table><thead><tr><th>Tid</th><th>Bana</th><th>Spelare</th><th>Typ</th><th>Status</th><th>Pris</th><th>PIN</th></tr></thead>
+          <table><thead><tr><th>Tid</th><th>Bana</th><th>Spelare</th><th>Typ</th><th>Status</th><th>Pris</th><th>PIN</th><th></th></tr></thead>
             <tbody>
               {filtered.map(b => (
                 <tr key={b.id}>
@@ -85,6 +112,11 @@ export default function BookingsPage() {
                   <td><StatusPill status={b.status} /></td>
                   <td style={{ fontWeight: 600 }}>{b.totalPrice?.toFixed(0)} <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>SEK</span></td>
                   <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-dim)' }}>{b.accessPin ?? '—'}</td>
+                  <td>
+                    {b.status !== 'cancelled' && (
+                      <button onClick={() => cancelBooking(b.id)} disabled={busy} style={{ padding: '3px 10px', borderRadius: 6, fontSize: 10, fontWeight: 600, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Avboka</button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

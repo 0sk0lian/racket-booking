@@ -88,6 +88,13 @@ export default function CourseDetailPage() {
     load();
   };
 
+  const deleteRegistration = async (registrationId: string) => {
+    if (!confirm('Ta bort denna anmälan? Detta kan inte ångras.')) return;
+    const res = await fetch(`${API}/courses/${id}/registrations?registrationId=${registrationId}`, { method: 'DELETE' }).then(r => r.json());
+    if (res.success) { flash('Anmälan borttagen'); load(); }
+    else flash(res.error ?? 'Kunde inte ta bort');
+  };
+
   const updateRegStatus = async (regStatus: string) => {
     await fetch(`${API}/courses/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -165,7 +172,7 @@ export default function CourseDetailPage() {
                 <button className="btn btn-primary" onClick={() => approveRegs(pending.map(r => r.id), 'approved')} style={{ padding: '6px 16px', fontSize: 12 }}>Godkänn alla</button>
               </div>
               {pending.map(r => (
-                <RegRow key={r.id} reg={r} onApprove={() => approveRegs([r.id], 'approved')} onReject={() => approveRegs([r.id], 'rejected')} />
+                <RegRow key={r.id} reg={r} onApprove={() => approveRegs([r.id], 'approved')} onReject={() => approveRegs([r.id], 'rejected')} onDelete={() => deleteRegistration(r.id)} />
               ))}
             </div>
           )}
@@ -193,12 +200,13 @@ export default function CourseDetailPage() {
                 approved
                 onMarkPaid={r.payment_status !== 'paid' ? () => setPaymentStatus([r.id], 'paid') : undefined}
                 onMarkUnpaid={r.payment_status === 'paid' ? () => setPaymentStatus([r.id], 'unpaid') : undefined}
+                onDelete={() => deleteRegistration(r.id)}
               />
             ))}
           {registrations.filter(r => r.status === 'waitlisted').length > 0 && (
             <>
               <h3 style={{ fontSize: 15, fontWeight: 700, marginTop: 20, marginBottom: 10 }}>Väntelista</h3>
-              {registrations.filter(r => r.status === 'waitlisted').map(r => <RegRow key={r.id} reg={r} onApprove={() => approveRegs([r.id], 'approved')} />)}
+              {registrations.filter(r => r.status === 'waitlisted').map(r => <RegRow key={r.id} reg={r} onApprove={() => approveRegs([r.id], 'approved')} onDelete={() => deleteRegistration(r.id)} />)}
             </>
           )}
         </div>
@@ -253,6 +261,7 @@ function RegRow({
   approved,
   onMarkPaid,
   onMarkUnpaid,
+  onDelete,
 }: {
   reg: any;
   onApprove?: () => void;
@@ -260,6 +269,7 @@ function RegRow({
   approved?: boolean;
   onMarkPaid?: () => void;
   onMarkUnpaid?: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 16px', marginBottom: 6 }}>
@@ -278,6 +288,7 @@ function RegRow({
         {approved && <span style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#ecfdf5', color: '#059669' }}>✓ Godkänd</span>}
         {approved && onMarkPaid && <button onClick={onMarkPaid} style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, border: '1px solid #a7f3d0', background: '#ecfdf5', color: '#059669', cursor: 'pointer', fontFamily: 'inherit' }}>Markera betald</button>}
         {approved && onMarkUnpaid && <button onClick={onMarkUnpaid} style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, border: '1px solid #fde68a', background: '#fefce8', color: '#a16207', cursor: 'pointer', fontFamily: 'inherit' }}>Markera obetald</button>}
+        {onDelete && <button onClick={onDelete} style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit' }}>Ta bort</button>}
       </div>
     </div>
   );

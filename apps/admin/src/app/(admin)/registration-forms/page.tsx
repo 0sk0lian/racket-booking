@@ -47,6 +47,17 @@ export default function RegistrationFormsPage() {
     setSaving(false); await reload();
   };
 
+  const closeForm = async (formId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm('Stäng detta formulär? Det kommer inte längre ta emot anmälningar.')) return;
+    setSaving(true);
+    const res = await fetch(`${API}/registration-forms/${formId}`, { method: 'DELETE' }).then(r => r.json());
+    setSaving(false);
+    if (res.success) { flash('Formulär stängt'); reload(); }
+    else flash(res.error ?? 'Kunde inte stänga formulär');
+  };
+
   const filtered = filter ? forms.filter(f => f.category === filter) : forms;
   const totalSubs = forms.reduce((s, f) => s + f.submission_count, 0);
 
@@ -103,7 +114,12 @@ export default function RegistrationFormsPage() {
                   <div style={{ padding: '16px 20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                       <span style={{ padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600, background: `${catInfo?.c}15`, color: catInfo?.c, border: `1px solid ${catInfo?.c}30` }}>{catInfo?.l} &middot; {f.sport_type}</span>
-                      <span className={`badge ${f.status === 'open' ? 'badge-green' : f.status === 'closed' ? 'badge-red' : 'badge-yellow'}`}>{f.status === 'open' ? 'Öppen' : f.status === 'closed' ? 'Stängd' : 'Utkast'}</span>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <span className={`badge ${f.status === 'open' ? 'badge-green' : f.status === 'closed' ? 'badge-red' : 'badge-yellow'}`}>{f.status === 'open' ? 'Öppen' : f.status === 'closed' ? 'Stängd' : 'Utkast'}</span>
+                        {f.status !== 'closed' && (
+                          <button onClick={(e) => closeForm(f.id, e)} disabled={saving} style={{ padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit' }}>Stäng</button>
+                        )}
+                      </div>
                     </div>
                     <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{f.title}</h3>
                     {f.description && <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.5 }}>{f.description}</p>}

@@ -71,6 +71,17 @@ export default function CoursesPage() {
 
   const reload = () => fetch(`${API}/courses?clubId=${clubId}`).then(r => r.json()).then(r => setCourses(r.data ?? []));
 
+  const deleteCourse = async (courseId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm('Ta bort denna kurs? Detta kan inte ångras.')) return;
+    setSaving(true);
+    const res = await fetch(`${API}/courses/${courseId}`, { method: 'DELETE' }).then(r => r.json());
+    setSaving(false);
+    if (res.success) { flash('Kurs borttagen'); reload(); }
+    else flash(res.error ?? 'Kunde inte ta bort kurs');
+  };
+
   const create = async () => {
     setSaving(true);
     const res = await fetch(`${API}/courses`, {
@@ -125,11 +136,14 @@ export default function CoursesPage() {
                   {c.term_start} → {c.term_end} · {c.sport_type} · {c.category}
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{c.registrations_approved}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>/{c.max_participants ?? '∞'}</span></div>
-                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>deltagare</div>
-                {c.registrations_pending > 0 && <div style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, marginTop: 2 }}>{c.registrations_pending} väntar</div>}
-                {c.price_total && <div style={{ fontSize: 13, fontWeight: 600, color: '#6366f1', marginTop: 4 }}>{c.price_total} SEK</div>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{c.registrations_approved}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>/{c.max_participants ?? '∞'}</span></div>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>deltagare</div>
+                  {c.registrations_pending > 0 && <div style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, marginTop: 2 }}>{c.registrations_pending} väntar</div>}
+                  {c.price_total && <div style={{ fontSize: 13, fontWeight: 600, color: '#6366f1', marginTop: 4 }}>{c.price_total} SEK</div>}
+                </div>
+                <button onClick={(e) => deleteCourse(c.id, e)} disabled={saving} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Ta bort</button>
               </div>
             </Link>
           ))}

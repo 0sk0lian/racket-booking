@@ -83,6 +83,30 @@ export default function UsersPage() {
     }
   };
 
+  const removeMembership = async (membershipId: string) => {
+    if (!confirm('Ta bort denna medlem från klubben? Detta kan inte ångras.')) return;
+    setEditBusy(true);
+    await fetch(`${API}/admin/memberships?id=${membershipId}`, { method: 'DELETE' });
+    setEditBusy(false);
+    flash('Medlem borttagen från klubb');
+    if (expandedId) {
+      const detailRes = await fetch(`${API}/features/player-detail/${expandedId}?clubId=${clubId}`).then(r => r.json());
+      setDetail(detailRes.data);
+    }
+  };
+
+  const deactivateAccount = async (userId: string) => {
+    if (!confirm('Deaktivera detta konto? Användaren kommer inte kunna logga in.')) return;
+    setEditBusy(true);
+    await fetch(`${API}/users/${userId}`, { method: 'DELETE' });
+    setEditBusy(false);
+    flash('Konto deaktiverat');
+    const listRes = await fetch(`${API}/users?clubId=${clubId}`).then(r => r.json());
+    setUsers(listRes.data || []);
+    setExpandedId(null);
+    setDetail(null);
+  };
+
   useEffect(() => {
     Promise.all([
       fetch(`${API}/clubs`).then((r) => r.json()),
@@ -408,11 +432,23 @@ export default function UsersPage() {
                                           {membership.status === 'suspended' && (
                                             <button onClick={() => updateMembership(membership.id, 'active')} disabled={editBusy} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: '1px solid #a7f3d0', background: '#ecfdf5', color: '#059669', cursor: 'pointer', fontFamily: 'inherit' }}>Aktivera</button>
                                           )}
+                                          <button onClick={() => removeMembership(membership.id)} disabled={editBusy} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit' }}>Ta bort</button>
                                         </div>
                                       </div>
                                     ))}
                                   </div>
                                 )}
+
+                                {/* Deactivate account */}
+                                <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                                  <button
+                                    onClick={() => deactivateAccount(detail.id)}
+                                    disabled={editBusy}
+                                    style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit' }}
+                                  >
+                                    Deaktivera konto
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           </div>

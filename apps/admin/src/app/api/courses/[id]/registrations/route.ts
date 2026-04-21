@@ -122,3 +122,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   return NextResponse.json({ success: true, data });
 }
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
+  const { id: courseId } = await params;
+  const registrationId = request.nextUrl.searchParams.get('registrationId');
+  if (!registrationId) return NextResponse.json({ success: false, error: 'registrationId required' }, { status: 400 });
+
+  const supabase = createSupabaseAdminClient();
+  const { data: course } = await supabase.from('courses').select('club_id').eq('id', courseId).single();
+  if (!course) return NextResponse.json({ success: false, error: 'Course not found' }, { status: 404 });
+
+  const access = await requireClubAccess(course.club_id);
+  if (!access.ok) return access.response;
+
+  const { error } = await supabase.from('course_registrations').delete().eq('id', registrationId).eq('course_id', courseId);
+  if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  return NextResponse.json({ success: true });
+}

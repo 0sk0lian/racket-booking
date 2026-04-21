@@ -41,6 +41,8 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [toast, setToast] = useState('');
+  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(''), 4000); };
 
   useEffect(() => {
     fetch(`${API}/clubs`).then(r => r.json()).then(r => {
@@ -60,6 +62,17 @@ export default function DashboardPage() {
       setAnnouncements(r.data ?? []);
     }).catch(() => {});
   }, [clubId]);
+
+  const deleteAnnouncement = async (announcementId: string) => {
+    if (!confirm('Ta bort denna nyhet?')) return;
+    const res = await fetch(`${API}/announcements?id=${announcementId}`, { method: 'DELETE' }).then(r => r.json());
+    if (res.success) {
+      setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
+      flash('Nyhet borttagen');
+    } else {
+      flash(res.error ?? 'Kunde inte ta bort');
+    }
+  };
 
   const h = new Date().getHours();
   const greeting = h < 12 ? 'God morgon' : h < 17 ? 'God eftermiddag' : 'God kvall';
@@ -93,6 +106,8 @@ export default function DashboardPage() {
           </select>
         )}
       </div>
+
+      {toast && <div className="toast">{toast}</div>}
 
       {loading ? (
         <div style={{ color: 'var(--text-dim)', padding: 60, textAlign: 'center', fontSize: 14 }}>
@@ -220,9 +235,16 @@ export default function DashboardPage() {
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                       <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{a.title}</span>
-                      <span style={{ fontSize: 11, color: 'var(--text-dim)', flexShrink: 0, marginLeft: 12 }}>
-                        {new Date(a.published_at).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 12 }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                          {new Date(a.published_at).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })}
+                        </span>
+                        <button
+                          onClick={() => deleteAnnouncement(a.id)}
+                          style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
+                          title="Ta bort nyhet"
+                        >&times;</button>
+                      </div>
                     </div>
                     <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
                       {a.body.length > 100 ? a.body.slice(0, 100) + '...' : a.body}

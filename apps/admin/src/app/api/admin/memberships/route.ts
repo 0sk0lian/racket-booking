@@ -161,3 +161,23 @@ export async function PATCH(request: NextRequest) {
 
   return NextResponse.json({ success: true, data });
 }
+
+export async function DELETE(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
+  const id = request.nextUrl.searchParams.get('id');
+  if (!id) return NextResponse.json({ success: false, error: 'id required' }, { status: 400 });
+
+  const supabase = createSupabaseAdminClient();
+  const { data: membership } = await supabase.from('club_memberships').select('club_id').eq('id', id).single();
+  if (!membership) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
+
+  const access = await requireClubAccess(membership.club_id);
+  if (!access.ok) return access.response;
+
+  // Hard delete the membership
+  const { error } = await supabase.from('club_memberships').delete().eq('id', id);
+  if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  return NextResponse.json({ success: true });
+}
