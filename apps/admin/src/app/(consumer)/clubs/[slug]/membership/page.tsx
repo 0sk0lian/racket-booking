@@ -95,52 +95,53 @@ export default function ClubMembershipPage() {
 
       {status === 'none' && (
         <>
-          {/* Type selection */}
-          {types.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-              {types.map((t) => {
-                const isSelected = selectedType === t.name;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setSelectedType(t.name)}
-                    style={{
-                      textAlign: 'left',
-                      padding: '20px 24px',
-                      borderRadius: 14,
-                      border: isSelected ? '2px solid #6366f1' : '1px solid #e2e8f0',
-                      background: isSelected ? '#eef2ff' : '#fff',
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                      transition: 'all 0.15s',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: isSelected ? '#4338ca' : '#1e293b' }}>{t.name}</div>
-                        {t.description && <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>{t.description}</div>}
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: isSelected ? '#4338ca' : '#1e293b' }}>
-                          {t.price > 0 ? `${t.price} ${t.currency}` : 'Gratis'}
-                        </div>
-                        <div style={{ fontSize: 11, color: '#94a3b8' }}>
-                          {intervalLabels[t.interval] ?? t.interval}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 28, marginBottom: 24 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Bli medlem</h2>
-              <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6, marginBottom: 0 }}>
-                Som medlem får du tillgång till medlemspriser, träningspass, event och matchning.
+          {types.length === 0 ? (
+            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 32, textAlign: 'center' }}>
+              <p style={{ fontSize: 36, marginBottom: 12 }}>&#128274;</p>
+              <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Inget medlemskap tillgängligt</h2>
+              <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>
+                Denna klubb har inte konfigurerat några medlemskapstyper ännu. Kontakta klubben för mer information.
               </p>
             </div>
-          )}
+          ) : (
+            <>
+              {/* Type selection */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+                {types.map((t) => {
+                  const isSelected = selectedType === t.name;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedType(t.name)}
+                      style={{
+                        textAlign: 'left',
+                        padding: '20px 24px',
+                        borderRadius: 14,
+                        border: isSelected ? '2px solid #6366f1' : '1px solid #e2e8f0',
+                        background: isSelected ? '#eef2ff' : '#fff',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: 16, fontWeight: 700, color: isSelected ? '#4338ca' : '#1e293b' }}>{t.name}</div>
+                          {t.description && <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>{t.description}</div>}
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: isSelected ? '#4338ca' : '#1e293b' }}>
+                            {t.price > 0 ? `${t.price} ${t.currency}` : 'Gratis'}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                            {intervalLabels[t.interval] ?? t.interval}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
 
           {/* Form fields for selected type */}
           {formFields.length > 0 && (
@@ -209,8 +210,10 @@ export default function ClubMembershipPage() {
           )}
 
           <button onClick={apply} disabled={applying} style={{ padding: '14px 32px', borderRadius: 12, fontSize: 15, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', border: 'none', cursor: applying ? 'wait' : 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(99,102,241,0.3)', width: '100%' }}>
-            {applying ? 'Skickar...' : types.length > 0 ? `Ansök om ${selectedType}` : 'Ansök om medlemskap'}
+            {applying ? 'Skickar...' : `Ansök om ${selectedType}`}
           </button>
+            </>
+          )}
         </>
       )}
 
@@ -218,7 +221,15 @@ export default function ClubMembershipPage() {
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 28, textAlign: 'center' }}>
           <p style={{ fontSize: 42, marginBottom: 12 }}>&#8987;</p>
           <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Ansökan inskickad</h2>
-          <p style={{ fontSize: 14, color: '#64748b' }}>Din ansökan har skickats till klubben. Du får besked så snart den har godkänts.</p>
+          <p style={{ fontSize: 14, color: '#64748b' }}>Din ansökan har skickats till klubben. Du får besked så snart den har granskats.</p>
+        </div>
+      )}
+
+      {status === 'approved' && (
+        <div style={{ background: '#fff', border: '1px solid #fde68a', borderRadius: 16, padding: 28, textAlign: 'center' }}>
+          <p style={{ fontSize: 42, marginBottom: 12 }}>&#128230;</p>
+          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: '#b45309' }}>Ansökan godkänd — inväntar betalning</h2>
+          <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>Din ansökan har godkänts! En faktura har skickats till din e-post. Medlemskapet aktiveras när betalningen registreras.</p>
         </div>
       )}
 
