@@ -81,7 +81,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   let membershipsQuery = supabase
     .from('club_memberships')
-    .select('id, club_id, status, membership_type, form_answers, payment_status, applied_at')
+    .select('id, club_id, status, membership_type, form_answers, payment_status, applied_at, invoice_id')
     .eq('user_id', userId);
   if (scopedClubIds !== null) membershipsQuery = membershipsQuery.in('club_id', scopedClubIds);
   const { data: memberships } = await membershipsQuery;
@@ -101,6 +101,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     form_answers: row.form_answers ?? {},
     payment_status: row.payment_status ?? 'unpaid',
     applied_at: row.applied_at,
+    invoice_id: row.invoice_id ?? null,
   }));
   if (scopedClubIds !== null) {
     const trainerClubId = (user as any).trainer_club_id as string | null | undefined;

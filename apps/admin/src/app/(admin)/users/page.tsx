@@ -379,7 +379,28 @@ export default function UsersPage() {
                                         <span>{membership.club_name} - {membership.membership_type} ({membership.status})</span>
                                         <div style={{ display: 'flex', gap: 4 }}>
                                           {membership.status === 'pending' && (
-                                            <button onClick={() => updateMembership(membership.id, 'active')} disabled={editBusy} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: '1px solid #a7f3d0', background: '#ecfdf5', color: '#059669', cursor: 'pointer', fontFamily: 'inherit' }}>Godkänn</button>
+                                            <button onClick={() => updateMembership(membership.id, 'approved')} disabled={editBusy} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: '1px solid #a7f3d0', background: '#ecfdf5', color: '#059669', cursor: 'pointer', fontFamily: 'inherit' }}>Godkänn ansökan</button>
+                                          )}
+                                          {membership.status === 'approved' && (
+                                            <>
+                                              <span style={{ fontSize: 10, color: '#b45309', padding: '2px 6px', background: '#fef3c7', borderRadius: 4 }}>Väntar betalning</span>
+                                              {membership.invoice_id && (
+                                                <button onClick={async () => {
+                                                  setEditBusy(true);
+                                                  await fetch(`${API}/invoices/${membership.invoice_id}`, {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ status: 'paid', paidMethod: 'manual' }),
+                                                  });
+                                                  setEditBusy(false);
+                                                  flash('Betalning registrerad — medlemskap aktiverat');
+                                                  if (expandedId) {
+                                                    const detailRes = await fetch(`${API}/features/player-detail/${expandedId}?clubId=${clubId}`).then(r => r.json());
+                                                    setDetail(detailRes.data);
+                                                  }
+                                                }} disabled={editBusy} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: '1px solid #a7f3d0', background: '#ecfdf5', color: '#059669', cursor: 'pointer', fontFamily: 'inherit' }}>Markera betald</button>
+                                              )}
+                                            </>
                                           )}
                                           {membership.status === 'active' && (
                                             <button onClick={() => updateMembership(membership.id, 'suspended')} disabled={editBusy} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit' }}>Pausa</button>
