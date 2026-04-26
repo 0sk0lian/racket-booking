@@ -1,6 +1,6 @@
 /**
  * GET    /api/admin/memberships?clubId=&status= — list memberships
- * PATCH  /api/admin/memberships                  — approve/reject
+ * PATCH  /api/admin/memberships                  — approve/reject/suspend
  * DELETE /api/admin/memberships?id=              — remove member from club
  */
 import { NextRequest, NextResponse } from 'next/server';
@@ -8,7 +8,6 @@ import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
 import { requireAdmin, requireClubAccess, scopeClubIdsForAdmin } from '../../../../lib/auth/guards';
 import { onMembershipApproved } from '../../../../lib/cascades';
 import { sendNotification } from '../../../../lib/notifications';
-import { generateInvoicePdf } from '../../../../lib/invoice-generator';
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
@@ -63,9 +62,13 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'id and status required' }, { status: 400 });
   }
 
+  const validStatuses = ['pending', 'approved', 'active', 'suspended', 'cancelled', 'rejected'];
+  if (!validStatuses.includes(status)) {
+    return NextResponse.json({ success: false, error: 'Invalid status' }, { status: 400 });
+  }
+
   const supabase = createSupabaseAdminClient();
 
-  // Fetch full membership data (need user_id, club_id, membership_type, form_answers)
   const { data: membership } = await supabase
     .from('club_memberships')
     .select('*')
@@ -78,8 +81,11 @@ export async function PATCH(request: NextRequest) {
   const access = await requireClubAccess(membership.club_id);
   if (!access.ok) return access.response;
 
-  const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
-  if (status === 'active' || status === 'approved') {
+  // 'approved' from UI means "godkänn" → set directly to 'active'
+  const effectiveStatus = status === 'approved' ? 'active' : status;
+
+  const updates: Record<string, unknown> = { status: effectiveStatus, updated_at: new Date().toISOString() };
+  if (effectiveStatus === 'active') {
     updates.approved_at = new Date().toISOString();
     updates.approved_by = admin.user.id;
   }
@@ -88,146 +94,53 @@ export async function PATCH(request: NextRequest) {
   const { data, error } = await supabase.from('club_memberships').update(updates).eq('id', id).select().single();
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
 
-  // --- APPROVED: form reviewed, create invoice if price > 0 ---
+  // --- GODKÄNN (approved → active) ---
   if (status === 'approved' && data) {
     // Apply form answers to user profile
-    const formAnswers = (data.form_answers ?? {}) as Record<string, unknown>;
-    if (Object.keys(formAnswers).length > 0) {
+    const fa = (data.form_answers ?? {}) as Record<string, unknown>;
+    if (Object.keys(fa).length > 0) {
       const profileUpdates: Record<string, unknown> = {};
-      for (const [key, val] of Object.entries(formAnswers)) {
-        const k = key.toLowerCase();
-        if ((k === 'telefon' || k === 'phone' || k === 'phone_number' || k === 'parent_phone') && val) {
-          profileUpdates.phone_number = String(val);
-        }
-        if ((k === 'personnummer' || k === 'social_number' || k === 'ssn') && val) {
-          // Store personnummer in form_answers — no dedicated column, but searchable
-        }
-        if ((k === 'födelsedatum' || k === 'birth_date' || k === 'birthdate') && val) {
-          if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            profileUpdates.birth_date = val;
-          }
-        }
+      if (fa.telefon) profileUpdates.phone_number = String(fa.telefon);
+      if (fa.fornamn || fa.efternamn) {
+        const fn = String(fa.fornamn ?? '').trim();
+        const ln = String(fa.efternamn ?? '').trim();
+        if (fn || ln) profileUpdates.full_name = `${fn} ${ln}`.trim();
       }
       if (Object.keys(profileUpdates).length > 0) {
         await supabase.from('users').update(profileUpdates).eq('id', data.user_id);
       }
     }
 
-    // Check membership type pricing
-    const { data: typeData } = await supabase.from('membership_types')
-      .select('price, interval')
-      .eq('club_id', data.club_id)
-      .eq('name', data.membership_type)
-      .eq('is_active', true)
-      .maybeSingle();
+    await onMembershipApproved({
+      id: data.id, club_id: data.club_id, user_id: data.user_id,
+      membership_type: data.membership_type, approved_by: admin.user.id,
+    });
 
-    const price = typeData?.price ?? 0;
+    await sendNotification({
+      userId: data.user_id, clubId: data.club_id,
+      type: 'membership.approved',
+      title: 'Medlemskap godkänt',
+      body: 'Din ansökan har godkänts. Välkommen till klubben!',
+      entityType: 'membership', entityId: id, sendEmail: true,
+    });
 
-    if (price > 0) {
-      // Create invoice directly (no internal fetch)
-      const { data: club } = await supabase.from('clubs')
-        .select('name, organization_number, contact_email, contact_phone, city')
-        .eq('id', data.club_id).single();
-      const { data: user } = await supabase.from('users')
-        .select('full_name, email')
-        .eq('id', data.user_id).single();
-
-      const invoiceNumber = `INV-${Date.now().toString(36).toUpperCase()}`;
-      const today = new Date().toISOString().split('T')[0];
-      const due = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
-      const items = [{ description: `Medlemskap: ${data.membership_type}`, amount: price }];
-
-      // Generate PDF
-      const pdfBytes = await generateInvoicePdf({
-        invoiceNumber,
-        date: today,
-        dueDate: due,
-        clubName: club?.name ?? '',
-        clubOrgNumber: club?.organization_number ?? undefined,
-        clubEmail: club?.contact_email ?? undefined,
-        clubPhone: club?.contact_phone ?? undefined,
-        clubCity: club?.city ?? undefined,
-        memberName: user?.full_name ?? 'Unknown',
-        memberEmail: user?.email ?? '',
-        items,
-        total: price,
-        currency: 'SEK',
-      });
-
-      const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
-
-      const { data: invoice } = await supabase.from('invoices').insert({
-        club_id: data.club_id,
-        user_id: data.user_id,
-        membership_id: data.id,
-        invoice_number: invoiceNumber,
-        amount: price,
-        currency: 'SEK',
-        description: items[0].description,
-        line_items: items,
-        status: 'sent',
-        due_date: due,
-        pdf_url: `data:application/pdf;base64,${pdfBase64}`,
-      }).select().single();
-
-      // Link invoice to membership
-      if (invoice) {
-        await supabase.from('club_memberships').update({
-          invoice_id: invoice.id,
-          payment_status: 'unpaid',
-        }).eq('id', data.id);
-      }
-
-      await sendNotification({
-        userId: data.user_id,
-        clubId: data.club_id,
-        type: 'membership.approved',
-        title: 'Ansökan godkänd — faktura skickad',
-        body: `Din ansökan har godkänts! En faktura på ${price} SEK har skapats.`,
-        entityType: 'membership',
-        entityId: id,
-        sendEmail: true,
-      });
-
-      return NextResponse.json({ success: true, data, invoice: invoice ?? null });
-
-    } else if (typeData) {
-      // Free membership type — activate directly
-      await supabase.from('club_memberships').update({
-        status: 'active',
-        payment_status: 'free',
-      }).eq('id', data.id);
-
-      await onMembershipApproved({
-        id: data.id, club_id: data.club_id, user_id: data.user_id,
-        membership_type: data.membership_type, approved_by: admin.user.id,
-      });
-
-      await sendNotification({
-        userId: data.user_id, clubId: data.club_id,
-        type: 'membership.approved',
-        title: 'Medlemskap godkänt',
-        body: 'Ditt medlemskap har godkänts. Välkommen!',
-        entityType: 'membership', entityId: id, sendEmail: true,
-      });
-
-      return NextResponse.json({ success: true, data: { ...data, status: 'active', payment_status: 'free' } });
-
-    } else {
-      // No type found — stay approved, admin handles manually
-      await sendNotification({
-        userId: data.user_id, clubId: data.club_id,
-        type: 'membership.approved',
-        title: 'Ansökan godkänd',
-        body: 'Din ansökan har godkänts av klubben.',
-        entityType: 'membership', entityId: id, sendEmail: true,
-      });
-
-      return NextResponse.json({ success: true, data });
-    }
+    return NextResponse.json({ success: true, data });
   }
 
-  // --- DIRECT ACTIVATION ---
+  // --- AVSLÅ (rejected) ---
+  if (status === 'rejected' && data) {
+    await sendNotification({
+      userId: data.user_id, clubId: data.club_id,
+      type: 'membership.rejected',
+      title: 'Ansökan avslagen',
+      body: 'Din medlemsansökan har tyvärr avslagits. Kontakta klubben för mer information.',
+      entityType: 'membership', entityId: id, sendEmail: true,
+    });
+
+    return NextResponse.json({ success: true, data });
+  }
+
+  // --- DIRECT ACTIVATION (admin sets active manually) ---
   if (status === 'active' && data) {
     await onMembershipApproved({
       id: data.id, club_id: data.club_id, user_id: data.user_id,

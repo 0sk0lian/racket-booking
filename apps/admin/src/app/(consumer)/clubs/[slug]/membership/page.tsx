@@ -2,247 +2,214 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
 
-interface FormField { key: string; label: string; type: 'text' | 'number' | 'select' | 'checkbox' | 'date'; required: boolean; options?: string[]; }
 interface MembershipType {
   id: string;
   name: string;
   description: string | null;
   price: number;
   currency: string;
-  interval: string;
-  form_fields: FormField[];
 }
-
-const intervalLabels: Record<string, string> = {
-  month: 'månad',
-  quarter: 'kvartal',
-  half_year: 'halvår',
-  year: 'år',
-  once: 'engångs',
-};
 
 export default function ClubMembershipPage() {
   const { slug } = useParams<{ slug: string }>();
+
   const [status, setStatus] = useState<string>('loading');
   const [types, setTypes] = useState<MembershipType[]>([]);
-  const [selectedType, setSelectedType] = useState<string>('');
-  const [formAnswers, setFormAnswers] = useState<Record<string, string | boolean>>({});
   const [applying, setApplying] = useState(false);
-  const [toast, setToast] = useState('');
-  const [validationError, setValidationError] = useState('');
+  const [error, setError] = useState('');
 
-  const selectedTypeObj = types.find(t => t.name === selectedType);
-  const formFields = selectedTypeObj?.form_fields ?? [];
+  // Form fields
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [personalNumber, setPersonalNumber] = useState('');
+  const [sport, setSport] = useState('');
+  const [selectedType, setSelectedType] = useState('');
+  const [message, setMessage] = useState('');
 
+  // Load current user email + membership status + types
   useEffect(() => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    );
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setEmail(data.user.email ?? '');
+        const meta = data.user.user_metadata ?? {};
+        const fullName = (meta.full_name as string) ?? '';
+        const parts = fullName.split(' ');
+        if (parts.length >= 2) {
+          setFirstName(parts[0]);
+          setLastName(parts.slice(1).join(' '));
+        } else if (parts.length === 1) {
+          setFirstName(parts[0]);
+        }
+      }
+    });
+
     Promise.all([
-      fetch(`/api/clubs/${slug}/membership`).then((r) => r.json()),
-      fetch(`/api/membership-types?clubId=${slug}`).then((r) => r.json()),
-    ]).then(([membershipRes, typesRes]) => {
-      setStatus(membershipRes.data?.status ?? 'none');
-      const loadedTypes = typesRes.data ?? [];
-      setTypes(loadedTypes);
-      if (loadedTypes.length > 0) setSelectedType(loadedTypes[0].name);
+      fetch(`/api/clubs/${slug}/membership`).then(r => r.json()),
+      fetch(`/api/membership-types?clubId=${slug}`).then(r => r.json()),
+    ]).then(([memberRes, typesRes]) => {
+      setStatus(memberRes.data?.status ?? 'none');
+      const loaded = typesRes.data ?? [];
+      setTypes(loaded);
+      if (loaded.length > 0) setSelectedType(loaded[0].name);
     });
   }, [slug]);
 
-  // Reset form answers when type changes
-  useEffect(() => {
-    setFormAnswers({});
-    setValidationError('');
-  }, [selectedType]);
-
-  const updateAnswer = (key: string, value: string | boolean) => {
-    setFormAnswers(prev => ({ ...prev, [key]: value }));
+  const validate = (): string | null => {
+    if (!firstName.trim()) return 'Förnamn krävs';
+    if (!lastName.trim()) return 'Efternamn krävs';
+    if (!phone.trim()) return 'Telefonnummer krävs';
+    if (!personalNumber.trim()) return 'Personnummer krävs';
+    if (!sport) return 'Välj sport';
+    if (types.length > 0 && !selectedType) return 'Välj medlemskapstyp';
+    return null;
   };
 
-  const apply = async () => {
-    // Validate required fields
-    for (const f of formFields) {
-      if (f.required) {
-        const val = formAnswers[f.key];
-        if (val === undefined || val === '' || val === false) {
-          setValidationError(`"${f.label}" är obligatoriskt`);
-          return;
-        }
-      }
-    }
-    setValidationError('');
+  const submit = async () => {
+    const err = validate();
+    if (err) { setError(err); return; }
+    setError('');
     setApplying(true);
+
     const res = await fetch(`/api/clubs/${slug}/membership`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         membershipType: selectedType || 'standard',
-        formAnswers: Object.keys(formAnswers).length > 0 ? formAnswers : undefined,
+        formAnswers: {
+          fornamn: firstName.trim(),
+          efternamn: lastName.trim(),
+          epost: email,
+          telefon: phone.trim(),
+          personnummer: personalNumber.trim(),
+          sport,
+          meddelande: message.trim() || undefined,
+        },
       }),
-    }).then((r) => r.json());
-    if (res.success) { setStatus('pending'); setToast('Ansökan skickad!'); }
-    else { setToast(res.error ?? 'Misslyckades'); }
+    }).then(r => r.json());
+
     setApplying(false);
-    setTimeout(() => setToast(''), 4000);
+    if (res.success) {
+      setStatus('pending');
+    } else {
+      setError(res.error ?? 'Något gick fel');
+    }
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto', padding: '32px 24px' }}>
-      <Link href={`/clubs/${slug}`} style={{ color: '#6366f1', textDecoration: 'none', fontSize: 13, marginBottom: 16, display: 'inline-block' }}>Tillbaka</Link>
-      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Medlemskap</h1>
-
-      {toast && <div style={{ padding: '10px 16px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 10, color: '#059669', fontSize: 13, fontWeight: 600, marginBottom: 16 }}>{toast}</div>}
+    <div style={{ maxWidth: 560, margin: '0 auto', padding: '32px 24px' }}>
+      <Link href={`/clubs/${slug}`} style={{ color: '#6366f1', textDecoration: 'none', fontSize: 13 }}>Tillbaka</Link>
+      <h1 style={{ fontSize: 28, fontWeight: 800, marginTop: 8, marginBottom: 20 }}>Bli medlem</h1>
 
       {status === 'loading' && <p style={{ color: '#94a3b8' }}>Laddar...</p>}
 
+      {/* === FORMULÄR === */}
       {status === 'none' && (
-        <>
-          {types.length === 0 ? (
-            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 32, textAlign: 'center' }}>
-              <p style={{ fontSize: 36, marginBottom: 12 }}>&#128274;</p>
-              <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Inget medlemskap tillgängligt</h2>
-              <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>
-                Denna klubb har inte konfigurerat några medlemskapstyper ännu. Kontakta klubben för mer information.
-              </p>
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 28 }}>
+          {error && (
+            <div style={{ padding: '10px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, color: '#dc2626', fontSize: 13, fontWeight: 600, marginBottom: 16 }}>
+              {error}
             </div>
-          ) : (
-            <>
-              {/* Type selection */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-                {types.map((t) => {
-                  const isSelected = selectedType === t.name;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setSelectedType(t.name)}
-                      style={{
-                        textAlign: 'left',
-                        padding: '20px 24px',
-                        borderRadius: 14,
-                        border: isSelected ? '2px solid #6366f1' : '1px solid #e2e8f0',
-                        background: isSelected ? '#eef2ff' : '#fff',
-                        cursor: 'pointer',
-                        fontFamily: 'inherit',
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <div style={{ fontSize: 16, fontWeight: 700, color: isSelected ? '#4338ca' : '#1e293b' }}>{t.name}</div>
-                          {t.description && <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>{t.description}</div>}
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: 20, fontWeight: 800, color: isSelected ? '#4338ca' : '#1e293b' }}>
-                            {t.price > 0 ? `${t.price} ${t.currency}` : 'Gratis'}
-                          </div>
-                          <div style={{ fontSize: 11, color: '#94a3b8' }}>
-                            {intervalLabels[t.interval] ?? t.interval}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <Field label="Förnamn *" value={firstName} onChange={setFirstName} />
+              <Field label="Efternamn *" value={lastName} onChange={setLastName} />
+            </div>
+
+            <Field label="E-post" value={email} onChange={() => {}} disabled />
+
+            <Field label="Telefonnummer *" value={phone} onChange={setPhone} placeholder="0701234567" />
+
+            <Field label="Personnummer *" value={personalNumber} onChange={setPersonalNumber} placeholder="ÅÅÅÅMMDDXXXX" />
+
+            <div>
+              <label style={labelStyle}>Sport *</label>
+              <select value={sport} onChange={e => setSport(e.target.value)} style={inputStyle}>
+                <option value="">Välj sport...</option>
+                <option value="tennis">Tennis</option>
+                <option value="padel">Padel</option>
+                <option value="both">Båda</option>
+              </select>
+            </div>
+
+            {types.length > 0 && (
+              <div>
+                <label style={labelStyle}>Medlemskapstyp *</label>
+                <select value={selectedType} onChange={e => setSelectedType(e.target.value)} style={inputStyle}>
+                  {types.map(t => (
+                    <option key={t.id} value={t.name}>
+                      {t.name}{t.price > 0 ? ` — ${t.price} ${t.currency}` : ' — Gratis'}
+                    </option>
+                  ))}
+                </select>
               </div>
+            )}
 
-          {/* Form fields for selected type */}
-          {formFields.length > 0 && (
-            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 24, marginBottom: 20 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Fyll i uppgifter</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {formFields.map((f) => (
-                  <div key={f.key}>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
-                      {f.label}{f.required && <span style={{ color: '#dc2626' }}> *</span>}
-                    </label>
-                    {f.type === 'text' && (
-                      <input
-                        type="text"
-                        value={(formAnswers[f.key] as string) ?? ''}
-                        onChange={e => updateAnswer(f.key, e.target.value)}
-                        style={formInput}
-                      />
-                    )}
-                    {f.type === 'number' && (
-                      <input
-                        type="number"
-                        value={(formAnswers[f.key] as string) ?? ''}
-                        onChange={e => updateAnswer(f.key, e.target.value)}
-                        style={formInput}
-                      />
-                    )}
-                    {f.type === 'date' && (
-                      <input
-                        type="date"
-                        value={(formAnswers[f.key] as string) ?? ''}
-                        onChange={e => updateAnswer(f.key, e.target.value)}
-                        style={formInput}
-                      />
-                    )}
-                    {f.type === 'select' && (
-                      <select
-                        value={(formAnswers[f.key] as string) ?? ''}
-                        onChange={e => updateAnswer(f.key, e.target.value)}
-                        style={formInput}
-                      >
-                        <option value="">Välj...</option>
-                        {(f.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
-                      </select>
-                    )}
-                    {f.type === 'checkbox' && (
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={!!formAnswers[f.key]}
-                          onChange={e => updateAnswer(f.key, e.target.checked)}
-                        />
-                        Ja
-                      </label>
-                    )}
-                  </div>
-                ))}
-              </div>
+            <div>
+              <label style={labelStyle}>Meddelande till klubben</label>
+              <textarea
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                placeholder="Frivilligt meddelande..."
+                rows={3}
+                style={{ ...inputStyle, resize: 'vertical' }}
+              />
             </div>
-          )}
 
-          {validationError && (
-            <div style={{ padding: '10px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, color: '#dc2626', fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
-              {validationError}
-            </div>
-          )}
-
-          <button onClick={apply} disabled={applying} style={{ padding: '14px 32px', borderRadius: 12, fontSize: 15, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', border: 'none', cursor: applying ? 'wait' : 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(99,102,241,0.3)', width: '100%' }}>
-            {applying ? 'Skickar...' : `Ansök om ${selectedType}`}
-          </button>
-            </>
-          )}
-        </>
+            <button onClick={submit} disabled={applying} style={{
+              width: '100%', padding: '14px 0', borderRadius: 12, fontSize: 15, fontWeight: 700,
+              color: '#fff', background: '#6366f1', border: 'none',
+              cursor: applying ? 'wait' : 'pointer', fontFamily: 'inherit',
+            }}>
+              {applying ? 'Skickar...' : 'Skicka ansökan'}
+            </button>
+          </div>
+        </div>
       )}
 
+      {/* === PENDING === */}
       {status === 'pending' && (
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 28, textAlign: 'center' }}>
-          <p style={{ fontSize: 42, marginBottom: 12 }}>&#8987;</p>
-          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Ansökan inskickad</h2>
-          <p style={{ fontSize: 14, color: '#64748b' }}>Din ansökan har skickats till klubben. Du får besked så snart den har granskats.</p>
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 32, textAlign: 'center' }}>
+          <p style={{ fontSize: 42, marginBottom: 12 }}>&#9993;</p>
+          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Tack för din ansökan</h2>
+          <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>
+            Klubben granskar din medlemsansökan och återkommer.
+          </p>
         </div>
       )}
 
-      {status === 'approved' && (
-        <div style={{ background: '#fff', border: '1px solid #fde68a', borderRadius: 16, padding: 28, textAlign: 'center' }}>
-          <p style={{ fontSize: 42, marginBottom: 12 }}>&#128230;</p>
-          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: '#b45309' }}>Ansökan godkänd — inväntar betalning</h2>
-          <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>Din ansökan har godkänts! En faktura har skickats till din e-post. Medlemskapet aktiveras när betalningen registreras.</p>
-        </div>
-      )}
-
-      {status === 'active' && (
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 28, textAlign: 'center' }}>
+      {/* === APPROVED / ACTIVE === */}
+      {(status === 'approved' || status === 'active') && (
+        <div style={{ background: '#fff', border: '1px solid #a7f3d0', borderRadius: 16, padding: 32, textAlign: 'center' }}>
           <p style={{ fontSize: 42, marginBottom: 12 }}>&#9989;</p>
           <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: '#059669' }}>Du är medlem!</h2>
-          <p style={{ fontSize: 14, color: '#64748b' }}>Du har full tillgång till klubbens träningar, event och matcher.</p>
+          <p style={{ fontSize: 14, color: '#64748b' }}>Välkommen till klubben.</p>
         </div>
       )}
 
+      {/* === REJECTED === */}
+      {status === 'rejected' && (
+        <div style={{ background: '#fff', border: '1px solid #fecaca', borderRadius: 16, padding: 32, textAlign: 'center' }}>
+          <p style={{ fontSize: 42, marginBottom: 12 }}>&#10060;</p>
+          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: '#dc2626' }}>Ansökan avslagen</h2>
+          <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>
+            Din ansökan har avslagits. Kontakta klubben för mer information.
+          </p>
+        </div>
+      )}
+
+      {/* === SUSPENDED === */}
       {status === 'suspended' && (
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 28, textAlign: 'center' }}>
+        <div style={{ background: '#fff', border: '1px solid #fde68a', borderRadius: 16, padding: 32, textAlign: 'center' }}>
           <p style={{ fontSize: 42, marginBottom: 12 }}>&#9888;</p>
           <h2 style={{ fontSize: 20, fontWeight: 700, color: '#b45309' }}>Medlemskap pausat</h2>
           <p style={{ fontSize: 14, color: '#64748b' }}>Kontakta klubben för mer information.</p>
@@ -252,12 +219,28 @@ export default function ClubMembershipPage() {
   );
 }
 
-const formInput: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  borderRadius: 10,
-  border: '1px solid #e2e8f0',
-  fontSize: 14,
-  fontFamily: 'inherit',
-  boxSizing: 'border-box',
+function Field({ label, value, onChange, placeholder, disabled }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string; disabled?: boolean;
+}) {
+  return (
+    <div>
+      <label style={labelStyle}>{label}</label>
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        style={{ ...inputStyle, opacity: disabled ? 0.6 : 1 }}
+      />
+    </div>
+  );
+}
+
+const labelStyle: React.CSSProperties = {
+  display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 4,
+};
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #e2e8f0',
+  fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box',
 };
