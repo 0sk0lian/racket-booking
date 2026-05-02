@@ -44,6 +44,8 @@ export default function ClubDetailPage() {
   const [membershipTypes, setMembershipTypes] = useState<any[]>([]);
   const [newType, setNewType] = useState({ name: '', description: '', price: '', interval: 'month' });
 
+  const [activeTab, setActiveTab] = useState<'overview' | 'courts' | 'memberships' | 'admins'>('overview');
+
   const [busy, setBusy] = useState(false);
   const [deletingClub, setDeletingClub] = useState(false);
   const [flash, setFlash] = useState('');
@@ -252,18 +254,51 @@ export default function ClubDetailPage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
-        <InfoCard label="Org.nr" value={club.organization_number ?? '-'} />
-        <InfoCard label="Stad" value={club.city ?? '-'} />
-        <InfoCard label="E-post" value={club.contact_email ?? '-'} />
-        <InfoCard label="Telefon" value={club.contact_phone ?? '-'} />
-        <InfoCard label="Typ" value={club.is_non_profit ? 'Ideell' : 'Kommersiell'} />
-        <InfoCard label="Tidszon" value={club.timezone ?? 'Europe/Stockholm'} />
+      {/* Tab bar */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
+        {([
+          { key: 'overview', label: 'Översikt' },
+          { key: 'courts', label: `Banor (${courts.length})` },
+          { key: 'memberships', label: `Medlemskap (${membershipTypes.length})` },
+          ...(meRole === 'superadmin' ? [{ key: 'admins', label: `Admins (${assignments.length})` }] : []),
+        ] as { key: typeof activeTab; label: string }[]).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              padding: '10px 20px',
+              fontSize: 13,
+              fontWeight: activeTab === tab.key ? 600 : 500,
+              color: activeTab === tab.key ? 'var(--accent)' : 'var(--text-muted)',
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              transition: 'all 0.15s',
+              marginBottom: -1,
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {meRole === 'superadmin' && (
-        <div style={{ marginBottom: 22 }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10 }}>Anläggningsadmins</h2>
+      {/* === ÖVERSIKT === */}
+      {activeTab === 'overview' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <InfoCard label="Org.nr" value={club.organization_number ?? '-'} />
+          <InfoCard label="Stad" value={club.city ?? '-'} />
+          <InfoCard label="E-post" value={club.contact_email ?? '-'} />
+          <InfoCard label="Telefon" value={club.contact_phone ?? '-'} />
+          <InfoCard label="Typ" value={club.is_non_profit ? 'Ideell' : 'Kommersiell'} />
+          <InfoCard label="Tidszon" value={club.timezone ?? 'Europe/Stockholm'} />
+        </div>
+      )}
+
+      {/* === ADMINS === */}
+      {activeTab === 'admins' && meRole === 'superadmin' && (
+        <div>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14 }}>
             {/* Invite by email */}
             <div style={{ marginBottom: 14 }}>
@@ -369,77 +404,64 @@ export default function ClubDetailPage() {
         </div>
       )}
 
-      {/* Membership Types */}
-      <div style={{ marginBottom: 22 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10 }}>Medlemskap</h2>
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>Skapa ny typ</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 100px 130px auto', gap: 8, alignItems: 'center', marginBottom: 14 }}>
-            <input value={newType.name} onChange={(e) => setNewType((p) => ({ ...p, name: e.target.value }))} placeholder="Namn (t.ex. Guld)" style={inputStyle} />
-            <input value={newType.description} onChange={(e) => setNewType((p) => ({ ...p, description: e.target.value }))} placeholder="Beskrivning" style={inputStyle} />
-            <input value={newType.price} onChange={(e) => setNewType((p) => ({ ...p, price: e.target.value }))} placeholder="Pris" type="number" min="0" style={inputStyle} />
-            <select value={newType.interval} onChange={(e) => setNewType((p) => ({ ...p, interval: e.target.value }))} style={inputStyle}>
-              <option value="month">Per månad</option>
-              <option value="quarter">Per kvartal</option>
-              <option value="half_year">Per halvår</option>
-              <option value="year">Per år</option>
-              <option value="once">Engångs</option>
-            </select>
-            <button onClick={createMembershipType} disabled={busy || !newType.name.trim()} className="btn btn-primary">
-              Skapa
-            </button>
-          </div>
+      {/* === MEDLEMSKAP === */}
+      {activeTab === 'memberships' && (
+        <div>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>Skapa ny typ</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 100px 130px auto', gap: 8, alignItems: 'center', marginBottom: 14 }}>
+              <input value={newType.name} onChange={(e) => setNewType((p) => ({ ...p, name: e.target.value }))} placeholder="Namn (t.ex. Guld)" style={inputStyle} />
+              <input value={newType.description} onChange={(e) => setNewType((p) => ({ ...p, description: e.target.value }))} placeholder="Beskrivning" style={inputStyle} />
+              <input value={newType.price} onChange={(e) => setNewType((p) => ({ ...p, price: e.target.value }))} placeholder="Pris" type="number" min="0" style={inputStyle} />
+              <select value={newType.interval} onChange={(e) => setNewType((p) => ({ ...p, interval: e.target.value }))} style={inputStyle}>
+                <option value="month">Per månad</option>
+                <option value="quarter">Per kvartal</option>
+                <option value="half_year">Per halvår</option>
+                <option value="year">Per år</option>
+                <option value="once">Engångs</option>
+              </select>
+              <button onClick={createMembershipType} disabled={busy || !newType.name.trim()} className="btn btn-primary">Skapa</button>
+            </div>
 
-          {membershipTypes.length === 0 ? (
-            <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>Inga medlemskapstyper skapade ännu.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {membershipTypes.map((mt) => (
-                <div key={mt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>{mt.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                      {mt.description ?? ''}
-                      {mt.description ? ' | ' : ''}
-                      {mt.price > 0 ? `${mt.price} ${mt.currency}` : 'Gratis'}
-                      {' / '}
-                      {{ month: 'månad', quarter: 'kvartal', half_year: 'halvår', year: 'år', once: 'engångs' }[mt.interval as string] ?? mt.interval}
+            {membershipTypes.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>Inga medlemskapstyper skapade ännu.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {membershipTypes.map((mt) => (
+                  <div key={mt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px' }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>{mt.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        {mt.description ?? ''}{mt.description ? ' | ' : ''}
+                        {mt.price > 0 ? `${mt.price} ${mt.currency}` : 'Gratis'}{' / '}
+                        {{ month: 'månad', quarter: 'kvartal', half_year: 'halvår', year: 'år', once: 'engångs' }[mt.interval as string] ?? mt.interval}
+                      </div>
                     </div>
+                    <button className="btn btn-outline" style={{ padding: '4px 10px', fontSize: 11, borderColor: '#ef4444', color: '#ef4444' }} onClick={() => deleteMembershipType(mt.id)} disabled={busy}>Ta bort</button>
                   </div>
-                  <button className="btn btn-outline" style={{ padding: '4px 10px', fontSize: 11, borderColor: '#ef4444', color: '#ef4444' }} onClick={() => deleteMembershipType(mt.id)} disabled={busy}>
-                    Ta bort
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>Banor ({courts.length})</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {courts.map((court) => (
-          <div
-            key={court.id}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              padding: '12px 16px',
-            }}
-          >
-            <div>
-              <span style={{ fontWeight: 600 }}>{court.name}</span>
-              <span style={{ color: 'var(--text-dim)', fontSize: 12, marginLeft: 8, textTransform: 'capitalize' }}>
-                {court.sport_type} | {court.is_indoor ? 'Inomhus' : 'Utomhus'}
-              </span>
-            </div>
-            <span style={{ fontWeight: 600, color: '#6366f1' }}>{court.base_hourly_rate} SEK/h</span>
+                ))}
+              </div>
+            )}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+
+      {/* === BANOR === */}
+      {activeTab === 'courts' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {courts.length === 0 ? (
+            <p style={{ fontSize: 13, color: 'var(--text-dim)', padding: 20, textAlign: 'center' }}>Inga banor tillagda ännu.</p>
+          ) : courts.map((court) => (
+            <div key={court.id} style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '12px 16px' }}>
+              <div>
+                <span style={{ fontWeight: 600 }}>{court.name}</span>
+                <span style={{ color: 'var(--text-dim)', fontSize: 12, marginLeft: 8, textTransform: 'capitalize' }}>{court.sport_type} | {court.is_indoor ? 'Inomhus' : 'Utomhus'}</span>
+              </div>
+              <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{court.base_hourly_rate} SEK/h</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
