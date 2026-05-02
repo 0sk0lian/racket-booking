@@ -15,6 +15,7 @@ interface DashboardData {
   pending: { memberships: number; course_registrations: number; sick_leaves: number; total: number };
   active_members: number;
   expiring_memberships: number;
+  inactive_members: number;
   upcoming_bookings: {
     id: string; type: string; court_name: string;
     time_start: string; time_end: string; booker_name: string;
@@ -42,6 +43,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [toast, setToast] = useState('');
+  const [noCourts, setNoCourts] = useState(false);
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(''), 4000); };
 
   useEffect(() => {
@@ -60,6 +62,11 @@ export default function DashboardPage() {
     });
     fetch(`${API}/announcements?clubId=${clubId}&limit=3`).then(r => r.json()).then(r => {
       setAnnouncements(r.data ?? []);
+    }).catch(() => {});
+    // Check if the club has any courts
+    fetch(`${API}/courts?clubId=${clubId}`).then(r => r.json()).then(r => {
+      const onboardingDone = typeof window !== 'undefined' && localStorage.getItem('onboarding_complete') === 'true';
+      setNoCourts(!onboardingDone && Array.isArray(r.data) && r.data.length === 0);
     }).catch(() => {});
   }, [clubId]);
 
@@ -108,6 +115,42 @@ export default function DashboardPage() {
       </div>
 
       {toast && <div className="toast">{toast}</div>}
+
+      {noCourts && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(6,182,212,0.08))',
+          border: '1px solid rgba(99,102,241,0.2)',
+          borderRadius: 14,
+          padding: '20px 24px',
+          marginBottom: 24,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+        }}>
+          <span style={{
+            width: 44, height: 44, borderRadius: 12,
+            background: 'rgba(99,102,241,0.12)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 22, flexShrink: 0,
+          }}>&#127934;</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#4f46e5', marginBottom: 2 }}>
+              Kom igang med din anlaggning
+            </div>
+            <div style={{ fontSize: 13, color: '#6366f1' }}>
+              Du har inga banor annu. Starta guiden for att konfigurera din anlaggning pa nagra minuter.
+            </div>
+          </div>
+          <Link href="/onboarding" style={{
+            padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+            background: '#6366f1', color: '#fff', textDecoration: 'none',
+            boxShadow: '0 2px 8px rgba(99,102,241,0.3)',
+            whiteSpace: 'nowrap',
+          }}>
+            Kom igang &rarr;
+          </Link>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ color: 'var(--text-dim)', padding: 60, textAlign: 'center', fontSize: 14 }}>
@@ -204,6 +247,25 @@ export default function DashboardPage() {
               <Link href="/admin/memberships" style={{
                 padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
                 background: '#f59e0b', color: '#fff', textDecoration: 'none',
+              }}>
+                Visa
+              </Link>
+            </div>
+          )}
+          {data.inactive_members > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderRadius: 'var(--radius)', background: 'var(--bg-card)', border: '1px solid var(--border)', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)' }}>
+                  {data.inactive_members} inaktiva medlemmar (30 dagar)
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>
+                  Har inte bokat på 30 dagar.
+                </div>
+              </div>
+              <Link href="/users" style={{
+                padding: '7px 14px', borderRadius: 'var(--radius-sm)', fontSize: 12, fontWeight: 600,
+                background: 'var(--bg-card-hover)', color: 'var(--text-muted)', textDecoration: 'none',
+                border: '1px solid var(--border)',
               }}>
                 Visa
               </Link>

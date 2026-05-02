@@ -80,8 +80,22 @@ export async function GET(request: NextRequest) {
 
   // Active members count
   const { data: activeMembers } = await supabase.from('club_memberships')
-    .select('id').eq('club_id', clubId).eq('status', 'active');
+    .select('id, user_id').eq('club_id', clubId).eq('status', 'active');
   const activeMembersCount = activeMembers?.length ?? 0;
+
+  // Inactive members: haven't booked in 30 days
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+  const activeUserIds = (activeMembers ?? []).map(m => m.user_id);
+  let inactiveCount = 0;
+  if (activeUserIds.length > 0) {
+    const { data: recentBookers } = await supabase
+      .from('bookings')
+      .select('booker_id')
+      .in('booker_id', activeUserIds)
+      .gt('time_slot_start', thirtyDaysAgo);
+    const recentBookerIds = new Set((recentBookers ?? []).map(b => b.booker_id));
+    inactiveCount = activeUserIds.filter(id => !recentBookerIds.has(id)).length;
+  }
 
   // Memberships expiring this week
   const nextWeek = new Date();
@@ -148,6 +162,7 @@ export async function GET(request: NextRequest) {
         total: pendingMembershipsCount + pendingCourseRegsCount + (openAbsences?.length ?? 0),
       },
       active_members: activeMembersCount,
+      inactive_members: inactiveCount,
       expiring_memberships: expiringMembershipsCount,
       upcoming_bookings: upcomingBookings,
       recent_activity: recentActivity,

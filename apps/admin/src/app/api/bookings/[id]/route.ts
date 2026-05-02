@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../../lib/supabase/server';
+import { generateQRDataURL } from '../../../../lib/qr';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,9 +16,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { data: court } = await supabase.from('courts').select('name, sport_type, club_id').eq('id', data.court_id).single();
   const { data: club } = court ? await supabase.from('clubs').select('name').eq('id', court.club_id).single() : { data: null };
 
+  // Generate QR code from access_pin if available
+  const qrCode = data.access_pin ? await generateQRDataURL(data.access_pin) : null;
+
   return NextResponse.json({
     success: true,
-    data: { ...data, court_name: court?.name, sport_type: court?.sport_type, club_name: club?.name },
+    data: { ...data, court_name: court?.name, sport_type: court?.sport_type, club_name: club?.name, qr_code: qrCode },
   });
 }
 

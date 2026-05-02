@@ -128,6 +128,10 @@ function SchedulePageInner() {
   const [creating, setCreating] = useState(false);
   const [applyPreview, setApplyPreview] = useState<{ ruleId: string; ruleTitle: string } | null>(null);
 
+  // Type picker step (shown before the create modal)
+  const [showTypePicker, setShowTypePicker] = useState(false);
+  const [preselectedType, setPreselectedType] = useState<BType>('regular');
+
   // ─── Load clubs/users/groups once ─────────────────────────────
   useEffect(() => {
     Promise.all([
@@ -271,6 +275,18 @@ function SchedulePageInner() {
 
   const openCreate = () => {
     if (selected.size === 0) return;
+    if (view === 'templates') {
+      // Templates are always training type — skip picker
+      setPreselectedType('training');
+      setCreating(true);
+    } else {
+      setShowTypePicker(true);
+    }
+  };
+
+  const pickTypeAndCreate = (t: BType) => {
+    setPreselectedType(t);
+    setShowTypePicker(false);
     setCreating(true);
   };
 
@@ -322,7 +338,7 @@ function SchedulePageInner() {
       view === 'day' ? await loadDay() : await loadWeek();
     }
 
-    setSelected(new Set()); setCreating(false); setSaving(false);
+    setSelected(new Set()); setCreating(false); setShowTypePicker(false); setSaving(false);
   };
 
   const handleEditSave = async (payload: Parameters<React.ComponentProps<typeof BookingModal>['onSave']>[0]) => {
@@ -414,12 +430,44 @@ function SchedulePageInner() {
                     {view === 'templates' && ' — skapar veckomallar'}
                   </span>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn btn-outline" onClick={() => setSelected(new Set())}>Rensa</button>
+                    <button className="btn btn-outline" onClick={() => { setSelected(new Set()); setShowTypePicker(false); }}>Rensa</button>
                     <button className="btn btn-primary" onClick={openCreate}>
                       Skapa {view === 'templates' ? 'mall' : 'bokning'}…
                     </button>
                   </div>
                 </div>
+
+                {/* Type picker — shown before the modal opens */}
+                {showTypePicker && (
+                  <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center', marginRight: 4 }}>Valj typ:</span>
+                    {([
+                      { key: 'training' as BType, label: 'Traning', color: '#6366f1' },
+                      { key: 'regular' as BType, label: 'Ordinarie', color: '#10b981' },
+                      { key: 'event' as BType, label: 'Evenemang', color: '#ec4899' },
+                      { key: 'contract' as BType, label: 'Kontrakt', color: '#f59e0b' },
+                    ]).map(opt => (
+                      <button
+                        key={opt.key}
+                        onClick={() => pickTypeAndCreate(opt.key)}
+                        style={{
+                          padding: '8px 18px',
+                          borderRadius: 8,
+                          border: `2px solid ${opt.color}`,
+                          background: `${opt.color}12`,
+                          color: opt.color,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -434,9 +482,9 @@ function SchedulePageInner() {
           groups={groups as any}
           trainers={trainers}
           saving={saving}
-          initialType={view === 'templates' ? 'training' : 'regular'}
+          initialType={preselectedType}
           onSave={handleCreate}
-          onCancel={() => setCreating(false)}
+          onCancel={() => { setCreating(false); setShowTypePicker(false); }}
         />
       )}
 
