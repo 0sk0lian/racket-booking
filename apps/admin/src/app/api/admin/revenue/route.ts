@@ -107,6 +107,23 @@ export async function GET(request: NextRequest) {
 
   const profit = total - trainerCosts - platformFees;
 
+  // Period comparison: same length period before 'from'
+  const fromDate = new Date(from);
+  const toDate = new Date(to);
+  const periodDays = Math.round((toDate.getTime() - fromDate.getTime()) / 86400000) + 1;
+  const prevTo = new Date(fromDate.getTime() - 86400000);
+  const prevFrom = new Date(prevTo.getTime() - (periodDays - 1) * 86400000);
+
+  const { data: prevBookings } = await supabase.from('bookings')
+    .select('total_price')
+    .in('court_id', courtIds).eq('status', 'confirmed')
+    .gte('time_slot_start', prevFrom.toISOString().split('T')[0] + 'T00:00:00')
+    .lte('time_slot_start', prevTo.toISOString().split('T')[0] + 'T23:59:59');
+
+  const prevTotal = (prevBookings ?? []).reduce((s, b) => s + (b.total_price ?? 0), 0);
+  const prevBookingCount = prevBookings?.length ?? 0;
+  const changePercent = prevTotal > 0 ? Math.round(((total - prevTotal) / prevTotal) * 100) : null;
+
   return NextResponse.json({
     success: true,
     data: {
@@ -118,6 +135,12 @@ export async function GET(request: NextRequest) {
       trainerCosts: Number(trainerCosts.toFixed(2)),
       platformFees: Number(platformFees.toFixed(2)),
       profit: Number(profit.toFixed(2)),
+      comparison: {
+        prevTotal: Number(prevTotal.toFixed(2)),
+        prevBookingCount,
+        changePercent,
+        prevPeriod: `${prevFrom.toISOString().split('T')[0]} – ${prevTo.toISOString().split('T')[0]}`,
+      },
     },
   });
 }

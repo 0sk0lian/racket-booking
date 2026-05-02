@@ -562,7 +562,11 @@ function bookingToItem(b: Booking, courtId: string, dayKey: string): GridItem<Bo
   const title = b.bookingType === 'event' ? (b.eventName ?? 'Evenemang') : b.bookerName;
   let subtitle = '';
   if (b.bookingType === 'training' && b.trainerName) subtitle = b.trainerName;
-  else if (b.bookingType === 'event') subtitle = `${b.attendeeCount}/${b.eventMaxParticipants ?? '?'}`;
+  else if (b.bookingType === 'event') {
+    const max = b.eventMaxParticipants;
+    const spotsLeft = max ? max - b.attendeeCount : null;
+    subtitle = spotsLeft === 0 ? 'Fullt' : spotsLeft !== null && spotsLeft <= 2 ? `${spotsLeft} plats${spotsLeft > 1 ? 'er' : ''} kvar` : `${b.attendeeCount}/${max ?? '∞'}`;
+  }
   else if (b.bookingType === 'contract') subtitle = 'Veckovis';
   const caption = b.attendanceTotal > 0 ? `${b.attendancePresent}/${b.attendanceTotal}` : undefined;
   return {

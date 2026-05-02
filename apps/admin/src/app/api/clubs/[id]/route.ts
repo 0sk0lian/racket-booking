@@ -41,7 +41,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   const { id } = await params;
   const supabase = createSupabaseAdminClient();
-  const { error } = await supabase.from('clubs').delete().eq('id', id);
+  // Soft-delete: hide the club, preserve data
+  const { error } = await supabase.from('clubs').update({
+    is_active: false,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id);
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
   return NextResponse.json({ success: true });
 }
