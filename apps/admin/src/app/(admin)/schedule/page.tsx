@@ -371,6 +371,45 @@ function SchedulePageInner() {
     view === 'day' ? await loadDay() : await loadWeek();
   };
 
+  // ─── Drag-move handler ──────────────────────────────────────
+  const handleItemMove = useCallback(async (
+    item: GridItem<Booking | TrainingSession>,
+    newCourtId: string,
+    newDayKey: string,
+    newStartHour: number,
+  ) => {
+    if (view === 'templates') return; // templates are not movable via drag
+    const duration = item.end_hour - item.start_hour;
+    const newEndHour = newStartHour + duration;
+    const court = gridCourts.find(c => c.id === newCourtId);
+    const courtName = court?.name ?? newCourtId;
+    const timeLabel = `${String(newStartHour).padStart(2, '0')}:00–${String(newEndHour).padStart(2, '0')}:00`;
+
+    if (!confirm(`Flytta ${item.title} till ${courtName} kl ${timeLabel}?`)) return;
+
+    setSaving(true);
+    const startTime = `${newDayKey}T${String(newStartHour).padStart(2, '0')}:00:00`;
+    const endTime = `${newDayKey}T${String(newEndHour).padStart(2, '0')}:00:00`;
+
+    const r = await fetch(`${API}/admin/bookings/${item.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        courtId: newCourtId,
+        timeSlotStart: startTime,
+        timeSlotEnd: endTime,
+      }),
+    }).then(r => r.json());
+
+    if (r.success) {
+      flash('Bokning flyttad');
+    } else {
+      flash(`Kunde inte flytta: ${r.error || 'okänt fel'}`);
+    }
+    setSaving(false);
+    view === 'day' ? await loadDay() : await loadWeek();
+  }, [view, gridCourts, loadDay, loadWeek]);
+
   // ─── Filter options ──────────────────────────────────────────
 
   const courtOptions: FilterOption[] = allCourts.map(c => ({ id: c.courtId, label: c.courtName, sublabel: c.sportType }));
@@ -419,6 +458,7 @@ function SchedulePageInner() {
               selected={selected}
               onSelectChange={setSelected}
               onItemClick={onItemClick}
+              onItemMove={view !== 'templates' ? handleItemMove : undefined}
               rowHeight={view === 'week' ? 44 : 56}
             />
 

@@ -16,7 +16,7 @@
  *   `${courtId}__${dayKey}__${hour}`
  * so one Set can span multiple days (important for Week view drag-select).
  */
-import { useEffect, useState, CSSProperties } from 'react';
+import { useEffect, useState, useRef, useCallback, CSSProperties } from 'react';
 
 export type CellKey = `${string}__${string}__${number}`;
 
@@ -72,6 +72,8 @@ export interface ScheduleGridProps<P = unknown> {
   onItemClick?: (item: GridItem<P>) => void;
   /** Optional per-cell empty-click handler (for single-click-creates-template flow). */
   onEmptyClick?: (courtId: string, dayKey: string, hour: number) => void;
+  /** Callback when a booking item is drag-moved to a new cell. */
+  onItemMove?: (item: GridItem<P>, newCourtId: string, newDayKey: string, newStartHour: number) => void;
   /** Disable drag-select entirely (e.g. in read-only views). */
   disableSelection?: boolean;
   /** Compact height for dense views. Defaults to 56px per hour. */
@@ -90,11 +92,95 @@ const VARIANT: Record<GridItem['variant'], { bg: string; border: string; text: s
 
 export function ScheduleGrid<P = unknown>({
   courts, days, items, hours = DEFAULT_HOURS,
-  selected, onSelectChange, onItemClick, onEmptyClick,
+  selected, onSelectChange, onItemClick, onEmptyClick, onItemMove,
   disableSelection = false, rowHeight = 56,
 }: ScheduleGridProps<P>) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragMode, setDragMode] = useState<'select' | 'deselect'>('select');
+
+  // ─── Drag-move state ────────────────────────────────────────
+  const [draggingItem, setDraggingItem] = useState<GridItem<P> | null>(null);
+  const [dragTarget, setDragTarget] = useState<{ courtId: string; dayKey: string; hour: number } | null>(null);
+  const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+  const dragThresholdMet = useRef(false);
+
+  // Check if a target position is valid for dropping (no overlapping items)
+  const isDropValid = useCallback((item: GridItem<P>, courtId: string, dayKey: string, startHour: number): boolean => {
+    const duration = item.end_hour - item.start_hour;
+    const endHour = startHour + duration;
+    if (endHour > hours[hours.length - 1] + 1) return false; // exceeds grid
+    for (let h = startHour; h < endHour; h++) {
+      const existing = items.find(i =>
+        i.id !== item.id &&
+        i.court_id === courtId &&
+        i.day_key === dayKey &&
+        h >= i.start_hour &&
+        h < i.end_hour,
+      );
+      if (existing) return false;
+    }
+    return true;
+  }, [items, hours]);
+
+  // Handle item mousedown — start potential drag-move
+  const onItemMouseDown = useCallback((e: React.MouseEvent, item: GridItem<P>) => {
+    if (!onItemMove) return;
+    e.preventDefault();
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
+    dragThresholdMet.current = false;
+
+    const handleMouseMove = (me: MouseEvent) => {
+      if (!dragThresholdMet.current) {
+        const dx = me.clientX - dragStartPos.current!.x;
+        const dy = me.clientY - dragStartPos.current!.y;
+        if (Math.abs(dx) + Math.abs(dy) < 8) return; // threshold not met yet
+        dragThresholdMet.current = true;
+        setDraggingItem(item);
+      }
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      dragStartPos.current = null;
+
+      if (!dragThresholdMet.current) {
+        // It was a click, not a drag
+        onItemClick?.(item);
+      }
+      // drag-move completion is handled by onCellMouseUp below
+      // If threshold was met but no valid target, cancel
+      setDraggingItem(null);
+      setDragTarget(null);
+      dragThresholdMet.current = false;
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  }, [onItemMove, onItemClick]);
+
+  // When hovering over a cell while dragging an item
+  const onCellDragEnter = useCallback((courtId: string, dayKey: string, hour: number) => {
+    if (!draggingItem) return;
+    if (isDropValid(draggingItem, courtId, dayKey, hour)) {
+      setDragTarget({ courtId, dayKey, hour });
+    } else {
+      setDragTarget(null);
+    }
+  }, [draggingItem, isDropValid]);
+
+  // When releasing on a cell while dragging
+  const onCellMouseUp = useCallback((courtId: string, dayKey: string, hour: number) => {
+    if (!draggingItem || !onItemMove) return;
+    if (isDropValid(draggingItem, courtId, dayKey, hour)) {
+      // Don't move if same position
+      if (draggingItem.court_id !== courtId || draggingItem.day_key !== dayKey || draggingItem.start_hour !== hour) {
+        onItemMove(draggingItem, courtId, dayKey, hour);
+      }
+    }
+    setDraggingItem(null);
+    setDragTarget(null);
+  }, [draggingItem, onItemMove, isDropValid]);
 
   useEffect(() => {
     const up = () => setIsDragging(false);
@@ -181,21 +267,33 @@ export function ScheduleGrid<P = unknown>({
               const item = findItem(court.id, day.key, h);
               const isSel = selected.has(k);
 
+              // Check if this cell is a drag-move ghost target
+              const isGhostCell = draggingItem && dragTarget &&
+                dragTarget.courtId === court.id &&
+                dragTarget.dayKey === day.key &&
+                h >= dragTarget.hour &&
+                h < dragTarget.hour + (draggingItem.end_hour - draggingItem.start_hour);
+              const isGhostStart = isGhostCell && h === dragTarget!.hour;
+
               if (item) {
                 const v = VARIANT[item.variant];
                 const isStart = item.start_hour === h;
                 const isLast = h + 1 >= item.end_hour;
-                const opacity = item.ghost ? 0.45 : 1;
+                const isDragSource = draggingItem?.id === item.id;
+                const opacity = item.ghost ? 0.45 : isDragSource ? 0.35 : 1;
                 return (
                   <div
                     key={k}
-                    onClick={() => onItemClick?.(item)}
+                    onMouseDown={onItemMove ? (e) => onItemMouseDown(e, item) : undefined}
+                    onClick={onItemMove ? undefined : () => onItemClick?.(item)}
+                    onMouseEnter={() => onCellDragEnter(court.id, day.key, h)}
+                    onMouseUp={() => onCellMouseUp(court.id, day.key, h)}
                     style={{
                       ...cellStyle,
                       height: rowHeight,
                       background: v.bg,
                       opacity,
-                      cursor: onItemClick ? 'pointer' : 'default',
+                      cursor: onItemMove ? 'grab' : onItemClick ? 'pointer' : 'default',
                       // Item-start indicator drawn as inset shadow so it doesn't
                       // displace the cell's content area (borderLeft would).
                       boxShadow: isStart ? `inset 3px 0 0 ${v.border}` : undefined,
@@ -225,16 +323,50 @@ export function ScheduleGrid<P = unknown>({
                 );
               }
 
+              // Render ghost overlay for drag-move target
+              if (isGhostCell && draggingItem) {
+                const gv = VARIANT[draggingItem.variant];
+                const duration = draggingItem.end_hour - draggingItem.start_hour;
+                const isGhostLast = h + 1 >= dragTarget!.hour + duration;
+                return (
+                  <div
+                    key={k}
+                    onMouseEnter={() => onCellDragEnter(court.id, day.key, h)}
+                    onMouseUp={() => onCellMouseUp(court.id, day.key, h)}
+                    style={{
+                      ...cellStyle,
+                      height: rowHeight,
+                      background: gv.bg,
+                      opacity: 0.55,
+                      borderStyle: 'dashed',
+                      borderColor: gv.border,
+                      boxShadow: isGhostStart ? `inset 3px 0 0 ${gv.border}` : undefined,
+                      borderRight: isGhostLast ? cellStyle.borderRight : 'none',
+                      cursor: 'grabbing',
+                    }}
+                  >
+                    {isGhostStart && (
+                      <div style={{ overflow: 'hidden', lineHeight: 1.3 }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 600, color: gv.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {draggingItem.title}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={k}
                   onMouseDown={() => onDown(k, court.id, day.key, h)}
-                  onMouseEnter={() => onEnter(k, court.id, day.key, h)}
+                  onMouseEnter={() => { onEnter(k, court.id, day.key, h); onCellDragEnter(court.id, day.key, h); }}
+                  onMouseUp={() => onCellMouseUp(court.id, day.key, h)}
                   onClick={() => !isDragging && onEmptyClick?.(court.id, day.key, h)}
                   style={{
                     ...cellStyle,
                     height: rowHeight,
-                    cursor: disableSelection ? (onEmptyClick ? 'pointer' : 'default') : 'crosshair',
+                    cursor: draggingItem ? 'grabbing' : disableSelection ? (onEmptyClick ? 'pointer' : 'default') : 'crosshair',
                     background: isSel ? '#eef2ff' : '#fff',
                     boxShadow: isSel ? 'inset 0 0 0 1px #a5b4fc' : undefined,
                   }}

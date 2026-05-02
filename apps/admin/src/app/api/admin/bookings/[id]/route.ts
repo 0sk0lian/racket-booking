@@ -30,6 +30,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (body.eventName !== undefined) updates.event_name = body.eventName;
   if (body.eventMaxParticipants !== undefined) updates.event_max_participants = body.eventMaxParticipants;
   if (body.eventAttendeeIds !== undefined) updates.event_attendee_ids = body.eventAttendeeIds;
+  if (body.courtId !== undefined) updates.court_id = body.courtId;
+  if (body.timeSlotStart !== undefined) updates.time_slot_start = body.timeSlotStart;
+  if (body.timeSlotEnd !== undefined) updates.time_slot_end = body.timeSlotEnd;
   if (body.totalPrice !== undefined) {
     const totalPrice = Number(body.totalPrice);
     if (!Number.isFinite(totalPrice) || totalPrice < 0) {

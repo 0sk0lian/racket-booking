@@ -621,6 +621,53 @@ export async function onTrainerReassigned(params: {
 }
 
 // ---------------------------------------------------------------------------
+// Court lighting automation
+// ---------------------------------------------------------------------------
+
+/**
+ * Called when a booking is created, to schedule court lights.
+ * Turns lights on 5 minutes before the booking start and off at the end.
+ * Only creates a schedule if the court has a hardware_relay_id configured.
+ *
+ * Note: The actual hardware API call (to Nox controllers) is NOT implemented
+ * here — just the scheduling. When hardware is connected, a cron job will
+ * check court_lighting_schedules and send commands.
+ */
+export async function onBookingCreatedLighting(booking: {
+  id: string;
+  court_id: string;
+  time_slot_start: string;
+  time_slot_end: string;
+}) {
+  const supabase = createSupabaseAdminClient();
+
+  // Get court hardware relay
+  const { data: court } = await supabase
+    .from('courts')
+    .select('hardware_relay_id')
+    .eq('id', booking.court_id)
+    .single();
+
+  if (!court?.hardware_relay_id) return; // No hardware, skip
+
+  // Schedule lights: on 5 min before, off at end
+  const lightsOn = new Date(new Date(booking.time_slot_start).getTime() - 5 * 60000);
+  const lightsOff = new Date(booking.time_slot_end);
+
+  await supabase.from('court_lighting_schedules').upsert(
+    {
+      court_id: booking.court_id,
+      booking_id: booking.id,
+      lights_on_at: lightsOn.toISOString(),
+      lights_off_at: lightsOff.toISOString(),
+      hardware_relay_id: court.hardware_relay_id,
+      status: 'scheduled',
+    },
+    { onConflict: 'booking_id' },
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Opening hours conflicts
 // ---------------------------------------------------------------------------
 
