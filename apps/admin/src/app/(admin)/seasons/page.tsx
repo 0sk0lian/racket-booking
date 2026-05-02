@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 const API = '/api';
 const DAYS = ['Sön', 'Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör'];
@@ -43,7 +43,7 @@ export default function SeasonsPage() {
         <div className="stat-card"><div className="label">Aktiv Säsong</div><div className="value" style={{ color: '#06b6d4', fontSize: 18 }}>{activeSeason?.name || '—'}</div></div>
       </div>
 
-      {loading ? <div className="loading">Loading...</div> : seasons.map(season => (
+      {loading ? <div className="loading">Laddar...</div> : seasons.map(season => (
         <div key={season.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, marginBottom: 20, overflow: 'hidden', boxShadow: 'var(--shadow-xs)' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -78,3 +78,4 @@ export default function SeasonsPage() {
 }
 function Fld({ label, children }: { label: string; children: React.ReactNode }) { return <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase' as const, letterSpacing: '0.7px' }}>{label}</label>{children}</div>; }
 const inp: React.CSSProperties = { padding: '9px 12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 13, width: '100%', fontFamily: 'inherit' };
+

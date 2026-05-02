@@ -1,11 +1,20 @@
 /**
- * GET  /api/courses/:id/registrations          — list registrations
- * PATCH /api/courses/:id/registrations         — bulk approve/reject (body: { ids[], status })
+ * GET  /api/courses/:id/registrations  - list registrations
+ * PATCH /api/courses/:id/registrations - bulk approve/reject/payment updates
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../lib/supabase/server';
 import { getRequestUser, getUserRole, requireAdmin, requireClubAccess } from '../../../../../lib/auth/guards';
-import { onCourseRegistrationsApproved } from '../../../../../lib/cascades';
+
+function buildPassCountMap(sessions: Array<{ player_ids?: string[] | null }>) {
+  const map = new Map<string, number>();
+  for (const session of sessions) {
+    for (const userId of session.player_ids ?? []) {
+      map.set(userId, (map.get(userId) ?? 0) + 1);
+    }
+  }
+  return map;
+}
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: courseId } = await params;
@@ -40,16 +49,37 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const userIds = [...new Set((data ?? []).map((row) => row.user_id))];
-  const { data: users } = userIds.length > 0
-    ? await supabase.from('users').select('id, full_name, email, phone_number').in('id', userIds)
-    : { data: [] };
+  const invoiceIds = [...new Set((data ?? []).map((row) => row.invoice_id).filter(Boolean))];
+  const sourceTag = `[course:${courseId}]`;
+
+  const [{ data: users }, { data: invoices }, { data: plannerSessions }] = await Promise.all([
+    userIds.length > 0
+      ? supabase.from('users').select('id, full_name, email, phone_number').in('id', userIds)
+      : { data: [] },
+    invoiceIds.length > 0
+      ? supabase.from('invoices').select('id, status, due_date, amount').in('id', invoiceIds as string[])
+      : { data: [] },
+    supabase
+      .from('training_sessions')
+      .select('player_ids')
+      .eq('club_id', course.club_id)
+      .ilike('notes', `%${sourceTag}%`),
+  ]);
+
   const userMap = new Map((users ?? []).map((row) => [row.id, row]));
+  const invoiceMap = new Map((invoices ?? []).map((row) => [row.id, row]));
+  const passCountMap = buildPassCountMap((plannerSessions ?? []) as Array<{ player_ids?: string[] | null }>);
 
   const enriched = (data ?? []).map((row) => ({
     ...row,
     user_name: userMap.get(row.user_id)?.full_name ?? 'Unknown',
     user_email: userMap.get(row.user_id)?.email ?? null,
     user_phone: userMap.get(row.user_id)?.phone_number ?? null,
+    pass_count: passCountMap.get(row.user_id) ?? 0,
+    invoice_status: row.invoice_id ? invoiceMap.get(row.invoice_id)?.status ?? null : null,
+    invoice_due_date: row.invoice_id ? invoiceMap.get(row.invoice_id)?.due_date ?? null : null,
+    invoice_amount: row.invoice_id ? invoiceMap.get(row.invoice_id)?.amount ?? null : null,
+    answers: row.answers ?? {},
   }));
 
   return NextResponse.json({ success: true, data: enriched });
@@ -88,27 +118,31 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (paymentStatus) updates.payment_status = paymentStatus;
   if (notes !== undefined) updates.notes = notes;
 
-  const { data, error } = await supabase.from('course_registrations')
-    .update(updates).in('id', ids).eq('course_id', courseId).select();
+  const { data, error } = await supabase
+    .from('course_registrations')
+    .update(updates)
+    .in('id', ids)
+    .eq('course_id', courseId)
+    .select();
 
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
 
-  // Auto-sync approved students to the training planner
-  if (status === 'approved') {
-    onCourseRegistrationsApproved(courseId).catch(() => {});
-  }
-
   if (status === 'rejected') {
-    const { data: course } = await supabase.from('courses').select('max_participants').eq('id', courseId).single();
+    const { data: courseData } = await supabase.from('courses').select('max_participants').eq('id', courseId).single();
     const { data: approved } = await supabase.from('course_registrations').select('id').eq('course_id', courseId).eq('status', 'approved');
-    const spotsLeft = course?.max_participants ? course.max_participants - (approved?.length ?? 0) : null;
+    const spotsLeft = courseData?.max_participants ? courseData.max_participants - (approved?.length ?? 0) : null;
 
     if (spotsLeft && spotsLeft > 0) {
-      const { data: waitlisted } = await supabase.from('course_registrations')
-        .select('id').eq('course_id', courseId).eq('status', 'waitlisted')
-        .order('waitlist_position').limit(spotsLeft);
+      const { data: waitlisted } = await supabase
+        .from('course_registrations')
+        .select('id')
+        .eq('course_id', courseId)
+        .eq('status', 'waitlisted')
+        .order('waitlist_position')
+        .limit(spotsLeft);
       if (waitlisted?.length) {
-        await supabase.from('course_registrations')
+        await supabase
+          .from('course_registrations')
           .update({
             status: 'approved',
             approved_at: new Date().toISOString(),

@@ -3,6 +3,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../lib/supabase/server';
+import { resolveClubId } from '../../../lib/clubs';
 
 type OpeningHoursRow = { day?: number; open?: string; close?: string };
 
@@ -41,8 +42,8 @@ function dateHourIso(dateStr: string, hour: number) {
 
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
-  const clubId = p.get('clubId');
-  if (!clubId) return NextResponse.json({ success: false, error: 'clubId required' }, { status: 400 });
+  const clubIdentifier = p.get('clubId');
+  if (!clubIdentifier) return NextResponse.json({ success: false, error: 'clubId required' }, { status: 400 });
 
   const today = toDateStr(new Date());
   const from = p.get('from') ?? today;
@@ -61,6 +62,10 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createSupabaseAdminClient();
+  const clubId = await resolveClubId(clubIdentifier, supabase);
+  if (!clubId) {
+    return NextResponse.json({ success: false, error: 'Club not found' }, { status: 404 });
+  }
 
   let courtQuery = supabase.from('courts').select('id, name, sport_type, base_hourly_rate').eq('club_id', clubId).eq('is_active', true);
   if (courtFilter) courtQuery = courtQuery.eq('id', courtFilter);

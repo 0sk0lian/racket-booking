@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 const API = '/api';
 
@@ -9,7 +9,7 @@ export default function StatementsPage() {
   useEffect(() => { fetch(`${API}/clubs`).then(r => r.json()).then(r => { setClubs(r.data || []); if (r.data?.length) setClubId(r.data[0].id); }); }, []);
   useEffect(() => { if (!clubId) return; setLoading(true); fetch(`${API}/matchi/statements?clubId=${clubId}`).then(r => r.json()).then(r => { setData(r.data); setLoading(false); }); }, [clubId]);
 
-  if (loading || !data) return <div className="loading">Loading...</div>;
+  if (loading || !data) return <div className="loading">Laddar...</div>;
   const maxEarned = Math.max(...data.statements.map((s: any) => s.total_earned), 1);
 
   return (
@@ -79,3 +79,4 @@ export default function StatementsPage() {
 }
 function Fld({ label, children }: { label: string; children: React.ReactNode }) { return <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase' as const, letterSpacing: '0.7px' }}>{label}</label>{children}</div>; }
 const inp: React.CSSProperties = { padding: '9px 12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 13, width: '100%', fontFamily: 'inherit' };
+

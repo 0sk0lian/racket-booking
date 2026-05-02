@@ -9,6 +9,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../lib/supabase/server';
 import { requireAdmin, requireClubAccess } from '../../../../../lib/auth/guards';
 
+function parseRateMap(value: unknown): Record<string, number> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out: Record<string, number> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    const rate = Number(raw);
+    if (Number.isFinite(rate) && rate >= 0) out[key] = rate;
+  }
+  return out;
+}
+
+function categoryFromReport(report: { description?: string | null; type?: string | null }) {
+  const match = report.description?.match(/\[cat:([a-zA-Z0-9_-]+)\]/);
+  return match?.[1] ?? report.type ?? 'other';
+}
+
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
@@ -48,7 +63,7 @@ export async function POST(request: NextRequest) {
   // Find all unapproved time reports for this trainer in this month and club
   const { data: reports, error: fetchErr } = await supabase
     .from('time_reports')
-    .select('id, hours')
+    .select('id, hours, type, description')
     .eq('user_id', trainerId)
     .eq('club_id', clubId)
     .eq('approved', false)
@@ -80,15 +95,21 @@ export async function POST(request: NextRequest) {
 
   const totalHours = reports.reduce((sum, r) => sum + Number(r.hours ?? 0), 0);
 
-  // Look up trainer's hourly rate from trainers table
+  // Use the current trainer fields on public.users, including per-category overrides.
   const { data: trainer } = await supabase
-    .from('trainers')
-    .select('hourly_rate')
-    .eq('user_id', trainerId)
+    .from('users')
+    .select('trainer_hourly_rate, trainer_rates')
+    .eq('id', trainerId)
     .maybeSingle();
 
-  const hourlyRate = Number(trainer?.hourly_rate ?? 0);
-  const totalPay = Number((totalHours * hourlyRate).toFixed(2));
+  const defaultRate = Number(trainer?.trainer_hourly_rate ?? 0);
+  const rateMap = parseRateMap(trainer?.trainer_rates);
+  const totalPay = Number((reports ?? []).reduce((sum, report) => {
+    const hours = Number(report.hours ?? 0);
+    const category = categoryFromReport(report);
+    const rate = Number(rateMap[category] ?? defaultRate);
+    return sum + (hours * rate);
+  }, 0).toFixed(2));
 
   return NextResponse.json({
     success: true,

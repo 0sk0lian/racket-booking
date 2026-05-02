@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 /**
  * Blackouts — first-class closures (holidays, maintenance, tournaments) that
  * the recurrence engine always skips when generating bookings.
@@ -81,7 +81,7 @@ export default function BlackoutsPage() {
   };
 
   const save = async () => {
-    if (!fStart || !fEnd) { flash('Start and end times required'); return; }
+    if (!fStart || !fEnd) { flash('Start- och sluttid krävs'); return; }
     setSaving(true);
     const r = await fetch(`${API}/blackouts`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -95,51 +95,51 @@ export default function BlackoutsPage() {
     }).then(r => r.json());
     setSaving(false);
     if (r.success) {
-      flash('Blackout created');
+      flash('Stängning skapad');
       setShowForm(false);
       await reload();
     } else {
-      flash(`Error: ${r.error}`);
+      flash(`Fel: ${r.error}`);
     }
   };
 
   const remove = async (id: string) => {
-    if (!confirm('Delete this blackout?')) return;
+    if (!confirm('Ta bort den här stängningen?')) return;
     await fetch(`${API}/blackouts/${id}`, { method: 'DELETE' });
-    flash('Blackout removed');
+    flash('Stängning borttagen');
     await reload();
   };
 
   return (
     <div>
       <div className="page-header">
-        <h1>Blackouts</h1>
-        <button className="btn btn-primary" onClick={openForm}>+ New blackout</button>
+        <h1>Stängningar</h1>
+        <button className="btn btn-primary" onClick={openForm}>+ Ny stängning</button>
       </div>
       {toast && <div className="toast">{toast}</div>}
 
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 18, maxWidth: 680 }}>
-        Blackouts are periods when courts are closed — holidays, tournaments, maintenance. The
-        scheduling engine skips them automatically when applying recurring bookings, and they
-        show up as "blackout" rows in the Apply-to-period preview.
+        Stängningar är perioder när banor är stängda, till exempel helgdagar, turneringar eller
+        underhåll. Schemaläggningen hoppar automatiskt över dem när återkommande bokningar läggs ut,
+        och de syns som egna rader i förhandsvisningen för periodtillämpning.
       </p>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 18 }}>
-        <Field label="Club">
+        <Field label="Klubb">
           <select value={clubId} onChange={e => setClubId(e.target.value)} style={inp}>
             {clubs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </Field>
         <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)', alignSelf: 'flex-end' }}>
-          {blackouts.length} blackout{blackouts.length === 1 ? '' : 's'}
+          {blackouts.length} stängning{blackouts.length === 1 ? '' : 'ar'}
         </div>
       </div>
 
-      {loading ? <div className="loading">Loading…</div> : blackouts.length === 0 ? (
+      {loading ? <div className="loading">Laddar…</div> : blackouts.length === 0 ? (
         <div className="empty-state">
           <p style={{ fontSize: 42, marginBottom: 10 }}>🚧</p>
-          <h3>No blackouts</h3>
-          <p style={{ color: 'var(--text-dim)', marginTop: 4 }}>Create one to block out holidays or maintenance windows.</p>
+          <h3>Inga stängningar</h3>
+          <p style={{ color: 'var(--text-dim)', marginTop: 4 }}>Skapa en stängning för helgdagar eller underhållsfönster.</p>
         </div>
       ) : (
         <div style={listWrap}>
@@ -147,9 +147,9 @@ export default function BlackoutsPage() {
             <div key={b.id} style={rowStyle}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700 }}>{b.reason || '(no reason)'}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{b.reason || '(ingen orsak angiven)'}</span>
                   <span style={badgeStyle(b.court_ids.length === 0 ? 'all' : 'some')}>
-                    {b.court_ids.length === 0 ? 'All courts' : `${b.court_ids.length} court(s)`}
+                    {b.court_ids.length === 0 ? 'Alla banor' : `${b.court_ids.length} bana${b.court_ids.length === 1 ? '' : 'r'}`}
                   </span>
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
@@ -161,7 +161,7 @@ export default function BlackoutsPage() {
                   </div>
                 )}
               </div>
-              <button onClick={() => remove(b.id)} style={removeBtn}>Remove</button>
+              <button onClick={() => remove(b.id)} style={removeBtn}>Ta bort</button>
             </div>
           ))}
         </div>
@@ -171,25 +171,25 @@ export default function BlackoutsPage() {
         <div style={overlay} onClick={() => setShowForm(false)}>
           <div style={modal} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700 }}>New blackout</h2>
+              <h2 style={{ fontSize: 18, fontWeight: 700 }}>Ny stängning</h2>
               <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--text-muted)' }}>&times;</button>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <Field label="Starts">
+              <Field label="Start">
                 <input type="datetime-local" value={fStart} onChange={e => setFStart(e.target.value)} style={inp} />
               </Field>
-              <Field label="Ends">
+              <Field label="Slut">
                 <input type="datetime-local" value={fEnd} onChange={e => setFEnd(e.target.value)} style={inp} />
               </Field>
             </div>
 
-            <Field label="Reason">
-              <input value={fReason} onChange={e => setFReason(e.target.value)} style={inp} placeholder="e.g. Christmas closure" />
+            <Field label="Orsak">
+              <input value={fReason} onChange={e => setFReason(e.target.value)} style={inp} placeholder="t.ex. Julstängt" />
             </Field>
 
             <div style={{ marginTop: 14 }}>
-              <label style={lbl}>Scope (leave empty = all courts)</label>
+              <label style={lbl}>Omfattning (lämna tomt = alla banor)</label>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {courts.map(c => {
                   const on = fCourts.includes(c.id);
@@ -215,9 +215,9 @@ export default function BlackoutsPage() {
 
             <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
               <button className="btn btn-primary" onClick={save} disabled={saving} style={{ flex: 1 }}>
-                {saving ? 'Creating…' : 'Create blackout'}
+                {saving ? 'Skapar…' : 'Skapa stängning'}
               </button>
-              <button className="btn btn-outline" onClick={() => setShowForm(false)}>Cancel</button>
+              <button className="btn btn-outline" onClick={() => setShowForm(false)}>Avbryt</button>
             </div>
           </div>
         </div>
@@ -233,7 +233,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function fmtRange(startIso: string, endIso: string): string {
   const s = new Date(startIso); const e = new Date(endIso);
   const opts: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
-  return `${s.toLocaleString(undefined, opts)} → ${e.toLocaleString(undefined, opts)}`;
+  return `${s.toLocaleString('sv-SE', opts)} → ${e.toLocaleString('sv-SE', opts)}`;
 }
 
 function badgeStyle(kind: 'all' | 'some'): CSSProperties {
@@ -273,3 +273,4 @@ const modal: CSSProperties = {
   maxHeight: '90vh', overflow: 'auto',
   boxShadow: '0 20px 60px rgba(0,0,0,0.12)', border: '1px solid var(--border)',
 };
+

@@ -38,8 +38,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!access.ok) return access.response;
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  const fields = ['name', 'description', 'court_id', 'trainer_id', 'day_of_week', 'start_hour', 'end_hour', 'term_start', 'term_end', 'skip_dates', 'max_participants', 'price_total', 'price_per_session', 'registration_status', 'visibility', 'status', 'sport_type', 'category'];
-  const camelToSnake: Record<string, string> = { courtId: 'court_id', trainerId: 'trainer_id', dayOfWeek: 'day_of_week', startHour: 'start_hour', endHour: 'end_hour', termStart: 'term_start', termEnd: 'term_end', skipDates: 'skip_dates', maxParticipants: 'max_participants', priceTotal: 'price_total', pricePerSession: 'price_per_session', registrationStatus: 'registration_status', sportType: 'sport_type' };
+  const fields = ['name', 'description', 'court_id', 'trainer_id', 'day_of_week', 'start_hour', 'end_hour', 'term_start', 'term_end', 'skip_dates', 'max_participants', 'price_total', 'price_per_session', 'registration_status', 'visibility', 'status', 'sport_type', 'category', 'registration_form_id'];
+  const camelToSnake: Record<string, string> = { courtId: 'court_id', trainerId: 'trainer_id', dayOfWeek: 'day_of_week', startHour: 'start_hour', endHour: 'end_hour', termStart: 'term_start', termEnd: 'term_end', skipDates: 'skip_dates', maxParticipants: 'max_participants', priceTotal: 'price_total', pricePerSession: 'price_per_session', registrationStatus: 'registration_status', sportType: 'sport_type', registrationFormId: 'registration_form_id' };
 
   for (const [key, val] of Object.entries(b)) {
     const snakeKey = camelToSnake[key] ?? key;

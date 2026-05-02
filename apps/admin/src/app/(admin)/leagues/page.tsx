@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 const API = '/api';
@@ -27,7 +27,7 @@ export default function LeaguesPage() {
         <div className="stat-card"><div className="label">Sporter</div><div className="value" style={{ color: '#f59e0b' }}>{new Set(leagues.map(l => l.sport_type)).size}</div></div>
       </div>
 
-      {loading ? <div className="loading">Loading...</div> : (
+      {loading ? <div className="loading">Laddar...</div> : (
         <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))' }}>
           {leagues.map(l => (
             <Link key={l.id} href={`/leagues/${l.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -60,3 +60,4 @@ export default function LeaguesPage() {
 }
 function Fld({ label, children }: { label: string; children: React.ReactNode }) { return <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase' as const, letterSpacing: '0.7px' }}>{label}</label>{children}</div>; }
 const inp: React.CSSProperties = { padding: '9px 12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 13, width: '100%', fontFamily: 'inherit' };
+

@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../lib/supabase/server';
 import { getRequestUser, getUserRole, getManagedClubIds } from '../../../lib/auth/guards';
+import { resolveClubId } from '../../../lib/clubs';
 
 export async function GET(request: NextRequest) {
-  const clubId = request.nextUrl.searchParams.get('clubId');
+  const clubIdentifier = request.nextUrl.searchParams.get('clubId');
   const supabase = createSupabaseAdminClient();
+  const clubId = clubIdentifier ? await resolveClubId(clubIdentifier, supabase) : null;
+
+  if (clubIdentifier && !clubId) {
+    return NextResponse.json({ success: false, error: 'Club not found' }, { status: 404 });
+  }
 
   const requestUser = await getRequestUser();
   let scopedClubIds: string[] | null = null;

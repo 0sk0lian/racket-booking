@@ -27,14 +27,14 @@ export default function ClubEventsPage() {
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 24px' }}>
       <Link href={`/clubs/${slug}`} style={{ color: '#6366f1', textDecoration: 'none', fontSize: 13, marginBottom: 16, display: 'inline-block' }}>← Tillbaka</Link>
-      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 24 }}>Event</h1>
+      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 24 }}>Evenemang</h1>
 
       {toast && <div style={{ padding: '10px 16px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 10, color: '#059669', fontSize: 13, fontWeight: 600, marginBottom: 16 }}>{toast}</div>}
 
       {loading ? <p style={{ color: '#94a3b8' }}>Laddar...</p> : events.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8' }}>
           <p style={{ fontSize: 42, marginBottom: 8 }}>🎉</p>
-          <h3 style={{ color: '#334155' }}>Inga kommande event</h3>
+          <h3 style={{ color: '#334155' }}>Inga kommande evenemang</h3>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

@@ -8,13 +8,13 @@
  */
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
-import { useEffect, useState, Suspense } from 'react';
+import { useCallback, useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 40 }}>Loading...</div>}>
+    <Suspense fallback={<div style={{ padding: 40 }}>Laddar...</div>}>
       <LoginInner />
     </Suspense>
   );
@@ -23,7 +23,7 @@ export default function LoginPage() {
 function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get('next') ?? '/';
+  const next = params.get('next');
   const [supabase] = useState(() => createSupabaseBrowserClient());
   const [view, setView] = useState<'sign_in' | 'sign_up' | 'forgot'>('sign_in');
 
@@ -36,19 +36,44 @@ function LoginInner() {
   const [signupLoading, setSignupLoading] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState(false);
 
+  const redirectAfterLogin = useCallback(async () => {
+    if (next) {
+      router.replace(next);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/users/me');
+      const body = await response.json();
+      const role = body?.data?.role;
+      if (role === 'trainer') {
+        router.replace('/my-sessions');
+        return;
+      }
+      if (role === 'admin' || role === 'superadmin') {
+        router.replace('/dashboard');
+        return;
+      }
+    } catch {
+      // Fall back to player home below.
+    }
+
+    router.replace('/');
+  }, [next, router]);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace(next);
+      if (data.session) void redirectAfterLogin();
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') router.replace(next);
+      if (event === 'SIGNED_IN') void redirectAfterLogin();
     });
     return () => sub.subscription.unsubscribe();
-  }, [supabase, router, next]);
+  }, [redirectAfterLogin, supabase]);
 
   const redirectTo =
     typeof window !== 'undefined'
-      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next ?? '/')}`
       : undefined;
 
   const handleSignup = async (e: React.FormEvent) => {

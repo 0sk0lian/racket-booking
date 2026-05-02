@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../../lib/supabase/server';
-import { requireClubAccess } from '../../../../../../lib/auth/guards';
+import { requireClubAccess, requireUser } from '../../../../../../lib/auth/guards';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: trainerId } = await params;
@@ -21,7 +21,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!trainer) return NextResponse.json({ success: false, error: 'Trainer not found' }, { status: 404 });
 
   const trainerClubId = trainer?.trainer_club_id as string | null;
-  if (trainerClubId) {
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+
+  const isSelfTrainer = auth.role === 'trainer' && auth.user.id === trainerId;
+  if (isSelfTrainer) {
+    if (!trainerClubId) {
+      return NextResponse.json({ success: false, error: 'Trainer has no club assignment' }, { status: 400 });
+    }
+  } else {
+    if (!trainerClubId) {
+      return NextResponse.json({ success: false, error: 'Trainer has no club assignment' }, { status: 400 });
+    }
     const access = await requireClubAccess(trainerClubId);
     if (!access.ok) return access.response;
   }

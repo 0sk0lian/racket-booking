@@ -4,10 +4,13 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../../../lib/supabase/server';
+import { resolveClubId } from '../../../../../lib/clubs';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id: clubId } = await params;
+  const { id: clubIdentifier } = await params;
   const supabase = createSupabaseAdminClient();
+  const clubId = await resolveClubId(clubIdentifier, supabase);
+  if (!clubId) return NextResponse.json({ success: false, error: 'Club not found' }, { status: 404 });
 
   // Check if user is a member (affects which sessions they see)
   const userSupabase = await createSupabaseServerClient();

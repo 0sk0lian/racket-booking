@@ -63,7 +63,7 @@ export function ApplyPreviewModal({ ruleId, ruleTitle, initialFrom, initialTo, o
       const r = await fetch(`${API}/recurrence-rules/${ruleId}/preview?from=${from}&to=${to}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
       }).then(r => r.json());
-      if (!r.success) throw new Error(r.error ?? 'Preview failed');
+      if (!r.success) throw new Error(r.error ?? 'Förhandsvisningen misslyckades');
       setPreview(r.data);
       setPhase('preview');
     } catch (e: any) {
@@ -75,10 +75,10 @@ export function ApplyPreviewModal({ ruleId, ruleTitle, initialFrom, initialTo, o
 
   const verdicts: Verdict[] = preview
     ? [
-        ...preview.instances.map<Verdict>(i => ({ date: i.date, hour: `${pad(i.start_hour)}:00–${pad(i.end_hour)}:00`, kind: 'create', note: 'Will create booking' })),
-        ...preview.blackouts.map<Verdict>(b => ({ date: b.date, hour: `${pad(b.start_hour)}:00–${pad(b.end_hour)}:00`, kind: 'blackout', note: `Closure: ${b.reason ?? '(no reason)'}` })),
-        ...preview.conflicts.map<Verdict>(c => ({ date: c.date, hour: `${pad(c.start_hour)}:00–${pad(c.end_hour)}:00`, kind: 'conflict', note: 'Slot already booked' })),
-        ...preview.skipped_dates.map<Verdict>(d => ({ date: d, hour: '—', kind: 'skip', note: 'Listed in rule skip_dates' })),
+        ...preview.instances.map<Verdict>(i => ({ date: i.date, hour: `${pad(i.start_hour)}:00–${pad(i.end_hour)}:00`, kind: 'create', note: 'Kommer att skapa bokning' })),
+        ...preview.blackouts.map<Verdict>(b => ({ date: b.date, hour: `${pad(b.start_hour)}:00–${pad(b.end_hour)}:00`, kind: 'blackout', note: `Stängning: ${b.reason ?? '(ingen orsak angiven)'}` })),
+        ...preview.conflicts.map<Verdict>(c => ({ date: c.date, hour: `${pad(c.start_hour)}:00–${pad(c.end_hour)}:00`, kind: 'conflict', note: 'Tidsluckan är redan bokad' })),
+        ...preview.skipped_dates.map<Verdict>(d => ({ date: d, hour: '—', kind: 'skip', note: 'Markerad för att hoppas över i regeln' })),
       ].sort((a, b) => (a.date + a.hour).localeCompare(b.date + b.hour))
     : [];
 
@@ -88,7 +88,7 @@ export function ApplyPreviewModal({ ruleId, ruleTitle, initialFrom, initialTo, o
       const r = await fetch(`${API}/recurrence-rules/${ruleId}/materialize?from=${from}&to=${to}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
       }).then(r => r.json());
-      if (!r.success) throw new Error(r.error ?? 'Apply failed');
+      if (!r.success) throw new Error(r.error ?? 'Kunde inte skapa bokningar');
       const summary = { created: r.data.created, batch_id: r.data.batch_id, blackouts: r.data.blackouts.length, conflicts: r.data.conflicts.length };
       setResult(summary);
       setPhase('result');
@@ -105,8 +105,8 @@ export function ApplyPreviewModal({ ruleId, ruleTitle, initialFrom, initialTo, o
       const r = await fetch(`${API}/apply-batches/${result.batch_id}`, {
         method: 'DELETE', headers: { 'Content-Type': 'application/json' },
       }).then(r => r.json());
-      if (!r.success) throw new Error(r.error ?? 'Undo failed');
-      setUndoMessage(`Undone — ${r.data.cancelled} booking(s) cancelled`);
+      if (!r.success) throw new Error(r.error ?? 'Kunde inte ångra');
+      setUndoMessage(`Ångrat — ${r.data.cancelled} bokning(ar) avbokade`);
       setPhase('result');
     } catch (e: any) {
       setError(e.message); setPhase('error');
@@ -118,7 +118,7 @@ export function ApplyPreviewModal({ ruleId, ruleTitle, initialFrom, initialTo, o
       <div style={modal} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
           <div>
-            <h2 style={{ fontSize: 18, fontWeight: 700 }}>Apply to period</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 700 }}>Tillämpa på period</h2>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{ruleTitle}</div>
           </div>
           <button onClick={onClose} style={closeBtn}>&times;</button>
@@ -128,45 +128,45 @@ export function ApplyPreviewModal({ ruleId, ruleTitle, initialFrom, initialTo, o
         {phase !== 'result' && phase !== 'applying' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10, marginBottom: 16 }}>
             <div>
-              <label style={lbl}>From</label>
+              <label style={lbl}>Från</label>
               <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={inp} />
             </div>
             <div>
-              <label style={lbl}>To</label>
+              <label style={lbl}>Till</label>
               <input type="date" value={to} onChange={e => setTo(e.target.value)} style={inp} />
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-              <button onClick={reload} className="btn btn-outline" style={{ padding: '9px 16px' }}>Refresh</button>
+              <button onClick={reload} className="btn btn-outline" style={{ padding: '9px 16px' }}>Uppdatera</button>
             </div>
           </div>
         )}
 
         {/* Phase content */}
-        {phase === 'loading' && <div className="loading">Computing preview…</div>}
+        {phase === 'loading' && <div className="loading">Beräknar förhandsvisning…</div>}
         {phase === 'error' && (
           <div style={errBox}>
-            <strong>Error:</strong> {error}
-            <div style={{ marginTop: 8 }}><button onClick={reload} className="btn btn-outline">Retry</button></div>
+            <strong>Fel:</strong> {error}
+            <div style={{ marginTop: 8 }}><button onClick={reload} className="btn btn-outline">Försök igen</button></div>
           </div>
         )}
 
         {phase === 'preview' && preview && (
           <>
             <div style={{ display: 'flex', gap: 12, marginBottom: 12, fontSize: 12 }}>
-              <Badge color="#059669" bg="#ecfdf5" label={`${preview.instances.length} create`} />
-              {preview.blackouts.length > 0 && <Badge color="#b45309" bg="#fef3c7" label={`${preview.blackouts.length} blackout`} />}
-              {preview.conflicts.length > 0 && <Badge color="#dc2626" bg="#fef2f2" label={`${preview.conflicts.length} conflict`} />}
-              {preview.skipped_dates.length > 0 && <Badge color="#6b7280" bg="#f3f4f6" label={`${preview.skipped_dates.length} skip`} />}
+              <Badge color="#059669" bg="#ecfdf5" label={`${preview.instances.length} skapas`} />
+              {preview.blackouts.length > 0 && <Badge color="#b45309" bg="#fef3c7" label={`${preview.blackouts.length} stängning`} />}
+              {preview.conflicts.length > 0 && <Badge color="#dc2626" bg="#fef2f2" label={`${preview.conflicts.length} konflikt`} />}
+              {preview.skipped_dates.length > 0 && <Badge color="#6b7280" bg="#f3f4f6" label={`${preview.skipped_dates.length} hoppas över`} />}
             </div>
 
             <div style={tableWrap}>
               <div style={tableHdr}>
-                <span style={colDate}>Date</span>
-                <span style={colHour}>Time</span>
+                <span style={colDate}>Datum</span>
+                <span style={colHour}>Tid</span>
                 <span style={colKind}>Status</span>
-                <span style={{ flex: 1 }}>Note</span>
+                <span style={{ flex: 1 }}>Notering</span>
               </div>
-              {verdicts.length === 0 && <div style={{ padding: 14, textAlign: 'center', color: 'var(--text-dim)', fontSize: 13 }}>No matching dates in this range.</div>}
+              {verdicts.length === 0 && <div style={{ padding: 14, textAlign: 'center', color: 'var(--text-dim)', fontSize: 13 }}>Inga datum matchar i den här perioden.</div>}
               {verdicts.map((v, i) => (
                 <div key={`${v.date}_${v.hour}_${i}`} style={{ ...tableRow, background: i % 2 ? 'var(--bg-body)' : 'transparent' }}>
                   <span style={colDate}>{v.date}</span>
@@ -184,23 +184,23 @@ export function ApplyPreviewModal({ ruleId, ruleTitle, initialFrom, initialTo, o
                 className="btn btn-primary"
                 style={{ flex: 1, opacity: preview.instances.length === 0 ? 0.5 : 1 }}
               >
-                Apply {preview.instances.length} booking{preview.instances.length === 1 ? '' : 's'}
+                Skapa {preview.instances.length} bokning{preview.instances.length === 1 ? '' : 'ar'}
               </button>
-              <button onClick={onClose} className="btn btn-outline">Cancel</button>
+              <button onClick={onClose} className="btn btn-outline">Avbryt</button>
             </div>
           </>
         )}
 
-        {phase === 'applying' && <div className="loading">Creating bookings…</div>}
+        {phase === 'applying' && <div className="loading">Skapar bokningar…</div>}
 
         {phase === 'result' && result && (
           <div style={resultBox}>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#059669', marginBottom: 6 }}>
-              Applied — {result.created} booking{result.created === 1 ? '' : 's'} created
+              Klart — {result.created} bokning{result.created === 1 ? '' : 'ar'} skapade
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-              {result.blackouts > 0 && `${result.blackouts} blackout(s) skipped · `}
-              {result.conflicts > 0 && `${result.conflicts} conflict(s) skipped · `}
+              {result.blackouts > 0 && `${result.blackouts} stängning(ar) hoppades över · `}
+              {result.conflicts > 0 && `${result.conflicts} konflikt(er) hoppades över · `}
               Batch <code>{result.batch_id.slice(0, 8)}…</code>
             </div>
             {undoMessage && (
@@ -209,15 +209,15 @@ export function ApplyPreviewModal({ ruleId, ruleTitle, initialFrom, initialTo, o
             <div style={{ display: 'flex', gap: 10 }}>
               {!undoMessage && (
                 <button onClick={undo} className="btn btn-outline" style={{ color: '#dc2626', borderColor: '#fecaca' }}>
-                  Undo this apply
+                  Ångra denna körning
                 </button>
               )}
-              <button onClick={onClose} className="btn btn-primary" style={{ flex: 1 }}>Done</button>
+              <button onClick={onClose} className="btn btn-primary" style={{ flex: 1 }}>Klar</button>
             </div>
           </div>
         )}
 
-        {phase === 'undoing' && <div className="loading">Undoing…</div>}
+        {phase === 'undoing' && <div className="loading">Ångrar…</div>}
       </div>
     </div>
   );
@@ -227,10 +227,10 @@ function pad(n: number): string { return String(n).padStart(2, '0'); }
 
 function VerdictPill({ kind }: { kind: Verdict['kind'] }) {
   const map: Record<Verdict['kind'], { label: string; color: string; bg: string }> = {
-    create:   { label: 'Create',   color: '#059669', bg: '#ecfdf5' },
-    blackout: { label: 'Blackout', color: '#b45309', bg: '#fef3c7' },
-    conflict: { label: 'Conflict', color: '#dc2626', bg: '#fef2f2' },
-    skip:     { label: 'Skip',     color: '#6b7280', bg: '#f3f4f6' },
+    create:   { label: 'Skapas', color: '#059669', bg: '#ecfdf5' },
+    blackout: { label: 'Stängning', color: '#b45309', bg: '#fef3c7' },
+    conflict: { label: 'Konflikt', color: '#dc2626', bg: '#fef2f2' },
+    skip:     { label: 'Hoppas över', color: '#6b7280', bg: '#f3f4f6' },
   };
   const c = map[kind];
   return (

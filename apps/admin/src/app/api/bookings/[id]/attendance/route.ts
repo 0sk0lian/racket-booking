@@ -4,9 +4,13 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../lib/supabase/server';
+import { requireBookingTrainerOrAdmin } from '../../../../../lib/booking-access';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const access = await requireBookingTrainerOrAdmin(id);
+  if (!access.ok) return access.response;
+
   const supabase = createSupabaseAdminClient();
 
   const { data: rows, error } = await supabase

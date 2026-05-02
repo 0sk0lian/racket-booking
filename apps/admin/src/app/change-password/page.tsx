@@ -19,10 +19,10 @@ export default function ChangePasswordPage() {
   const submit = async () => {
     setError('');
     if (password.length < 6) {
-      return setError('Password must be at least 6 characters');
+      return setError('Lösenordet måste vara minst 6 tecken');
     }
     if (password !== confirm) {
-      return setError('Passwords do not match');
+      return setError('Lösenorden matchar inte');
     }
 
     setBusy(true);
@@ -59,9 +59,9 @@ export default function ChangePasswordPage() {
         borderRadius: 16,
         padding: 32,
       }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Change Your Password</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Byt ditt lösenord</h1>
         <p style={{ fontSize: 13, color: 'var(--text-muted, #64748b)', marginBottom: 24 }}>
-          Your account was created with a temporary password. Please set a new password to continue.
+          Ditt konto skapades med ett tillfälligt lösenord. Välj ett nytt lösenord för att fortsätta.
         </p>
 
         {error && (
@@ -82,13 +82,13 @@ export default function ChangePasswordPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: 4 }}>
-              New Password
+              Nytt lösenord
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 6 characters"
+              placeholder="Minst 6 tecken"
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -102,13 +102,13 @@ export default function ChangePasswordPage() {
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: 4 }}>
-              Confirm Password
+              Bekräfta lösenord
             </label>
             <input
               type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              placeholder="Re-enter password"
+              placeholder="Skriv lösenordet igen"
               onKeyDown={(e) => e.key === 'Enter' && submit()}
               style={{
                 width: '100%',
@@ -127,7 +127,7 @@ export default function ChangePasswordPage() {
             className="btn btn-primary"
             style={{ marginTop: 8, padding: '12px 0', fontSize: 14, width: '100%' }}
           >
-            {busy ? 'Saving...' : 'Set New Password'}
+            {busy ? 'Sparar...' : 'Spara nytt lösenord'}
           </button>
         </div>
       </div>

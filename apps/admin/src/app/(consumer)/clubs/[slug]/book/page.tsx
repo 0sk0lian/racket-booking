@@ -62,7 +62,7 @@ export default function BookingPage() {
       router.push(`/login?next=${next}`);
       return;
     } else {
-      setError(res.error ?? 'Booking failed');
+      setError(res.error ?? 'Bokningen misslyckades');
       setConfirming(false);
     }
   };

@@ -6,13 +6,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../lib/supabase/server';
 import { requireAdmin, requireClubAccess, requireUser } from '../../../lib/auth/guards';
 import { autoCloseExpiredForms, autoOpenScheduledForms } from '../../../lib/form-automations';
+import { resolveClubId } from '../../../lib/clubs';
 
 export async function GET(request: NextRequest) {
-  const clubId = request.nextUrl.searchParams.get('clubId');
+  const clubIdentifier = request.nextUrl.searchParams.get('clubId');
   const status = request.nextUrl.searchParams.get('status');
   const category = request.nextUrl.searchParams.get('category');
 
-  if (!clubId) {
+  if (!clubIdentifier) {
     return NextResponse.json({ success: false, error: 'clubId is required' }, { status: 400 });
   }
 
@@ -23,6 +24,10 @@ export async function GET(request: NextRequest) {
   const isAdmin = admin.ok;
 
   const supabase = createSupabaseAdminClient();
+  const clubId = await resolveClubId(clubIdentifier, supabase);
+  if (!clubId) {
+    return NextResponse.json({ success: false, error: 'Club not found' }, { status: 404 });
+  }
 
   let query = supabase
     .from('registration_forms')

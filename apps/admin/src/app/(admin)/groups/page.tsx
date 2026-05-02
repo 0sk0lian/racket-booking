@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 const API = '/api';
 const CATS = [{ v: 'junior', l: 'Junior', c: '#06b6d4' }, { v: 'adult', l: 'Vuxen', c: '#10b981' }, { v: 'senior', l: 'Senior', c: '#f59e0b' }, { v: 'camp', l: 'Läger', c: '#ec4899' }, { v: 'competition', l: 'Tävling', c: '#ef4444' }, { v: 'other', l: 'Övrigt', c: '#64748b' }];
@@ -67,7 +67,7 @@ export default function GroupsPage() {
         </Fld>
       </div>
 
-      {loading ? <div className="loading">Loading...</div> : filter ? (
+      {loading ? <div className="loading">Laddar...</div> : filter ? (
         /* Flat filtered view */
         <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
           {filtered!.map(g => <GroupCard key={g.id} g={g} onEdit={() => openEdit(g)} />)}
@@ -167,3 +167,4 @@ const inp: React.CSSProperties = { padding: '9px 12px', background: 'var(--bg-in
 const chip: React.CSSProperties = { padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid var(--border)', transition: 'all 0.15s', fontFamily: 'inherit' };
 const ov: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 };
 const md: React.CSSProperties = { background: 'var(--bg-card)', borderRadius: 18, padding: 32, width: 600, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.12)', border: '1px solid var(--border)', animation: 'fadeUp 0.3s cubic-bezier(0.34,1.56,0.64,1) both' };
+

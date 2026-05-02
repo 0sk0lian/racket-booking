@@ -11,7 +11,7 @@ interface NavItem { href: string; label: string; superOnly?: boolean; }
 interface NavSection { key: string; label: string; icon: string; color: string; hub: string; items: NavItem[]; }
 
 const mainNav = [
-  { href: '/dashboard', label: 'Dashboard', icon: 'D', color: '#6366f1' },
+  { href: '/dashboard', label: 'Översikt', icon: 'Ö', color: '#6366f1' },
   { href: '/schedule', label: 'Schema', icon: 'S', color: '#06b6d4' },
   { href: '/bookings', label: 'Bokningar', icon: 'B', color: '#10b981' },
 ];
@@ -25,7 +25,7 @@ const sections: NavSection[] = [
       { href: '/groups', label: 'Grupper' },
       { href: '/courses', label: 'Kurser' },
       { href: '/registration-forms', label: 'Anmälningar' },
-      { href: '/public-matches', label: 'Publika Matcher', superOnly: true },
+      { href: '/public-matches', label: 'Publika matcher', superOnly: true },
       { href: '/matches', label: 'Matchlogg', superOnly: true },
       { href: '/leagues', label: 'Ligor', superOnly: true },
     ],
@@ -37,8 +37,8 @@ const sections: NavSection[] = [
       { href: '/training-planner', label: 'Träningsplanerare' },
       { href: '/admin/trainers', label: 'Tränare' },
       { href: '/employee-schedule', label: 'Personalschema' },
-      { href: '/employee-time', label: 'Tidrapportering', superOnly: true },
-      { href: '/sick-leave', label: 'Sjukanmälan', superOnly: true },
+      { href: '/employee-time', label: 'Tidrapportering' },
+      { href: '/sick-leave', label: 'Sjukanmälan' },
     ],
   },
   {
@@ -48,10 +48,10 @@ const sections: NavSection[] = [
       { href: '/revenue', label: 'Omsättning' },
       { href: '/prices', label: 'Priskalender' },
       { href: '/occupancy', label: 'Beläggning' },
-      { href: '/statements', label: 'Statements', superOnly: true },
+      { href: '/statements', label: 'Avräkningar', superOnly: true },
       { href: '/clip-cards', label: 'Klippkort', superOnly: true },
       { href: '/seasons', label: 'Säsonger', superOnly: true },
-      { href: '/analytics', label: 'Analytics', superOnly: true },
+      { href: '/analytics', label: 'Analys', superOnly: true },
     ],
   },
   {
@@ -62,7 +62,7 @@ const sections: NavSection[] = [
       { href: '/admin/blackouts', label: 'Stängningar' },
       { href: '/admin/memberships', label: 'Medlemskap' },
       { href: '/admin/settings', label: 'Inställningar' },
-      { href: '/admin/manage-clubs', label: 'Alla Klubbar', superOnly: true },
+      { href: '/admin/manage-clubs', label: 'Alla klubbar', superOnly: true },
     ],
   },
 ];
@@ -205,7 +205,7 @@ export function Sidebar({ isSuperadmin = false, userName }: { isSuperadmin?: boo
           cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
         }}>
           <span style={{ fontSize: 14 }}>{theme === 'light' ? '\u263E' : '\u2600'}</span>
-          {theme === 'light' ? 'Dark mode' : 'Light mode'}
+          {theme === 'light' ? 'Mörkt läge' : 'Ljust läge'}
         </button>
       </div>
 
@@ -214,7 +214,7 @@ export function Sidebar({ isSuperadmin = false, userName }: { isSuperadmin?: boo
         <div className="sidebar-user-avatar">{(userName ?? 'AD').slice(0, 2).toUpperCase()}</div>
         <div>
           <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{userName ?? 'Admin'}</div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-dim)' }}>{isSuperadmin ? 'Superadmin' : 'Club Admin'}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-dim)' }}>{isSuperadmin ? 'Superadmin' : 'Klubbadmin'}</div>
         </div>
       </div>
     </aside>

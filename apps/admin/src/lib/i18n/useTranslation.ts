@@ -6,23 +6,20 @@ type Locale = keyof typeof translations;
 type TranslationKey = keyof (typeof translations)['sv'];
 
 function detectLocale(): Locale {
-  if (typeof window === 'undefined') return 'sv';
-  const stored = localStorage.getItem('locale');
-  if (stored === 'sv' || stored === 'en') return stored;
-  const browser = navigator.language.slice(0, 2);
-  return browser === 'en' ? 'en' : 'sv';
+  return 'sv';
 }
 
 export function useTranslation() {
   const [locale, setLocaleState] = useState<Locale>('sv');
 
   useEffect(() => {
-    setLocaleState(detectLocale());
+    setLocaleState('sv');
+    if (typeof window !== 'undefined') localStorage.setItem('locale', 'sv');
   }, []);
 
-  const setLocale = useCallback((l: Locale) => {
-    setLocaleState(l);
-    localStorage.setItem('locale', l);
+  const setLocale = useCallback((_l: Locale) => {
+    setLocaleState('sv');
+    localStorage.setItem('locale', 'sv');
   }, []);
 
   const t = useCallback(

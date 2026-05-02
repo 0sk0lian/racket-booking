@@ -109,7 +109,7 @@ export default function TimeReportsPage() {
             <Fld label="Anställd"><select value={fUser} onChange={e => setFUser(e.target.value)} style={inp}><option value="">Välj...</option>{trainers.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}</select></Fld>
             <Fld label="Datum"><input type="date" value={fDate} onChange={e => setFDate(e.target.value)} style={inp} /></Fld>
             <Fld label="Timmar"><input type="number" min="0.5" step="0.5" value={fHours} onChange={e => setFHours(e.target.value)} style={inp} /></Fld>
-            <Fld label="Typ"><select value={fType} onChange={e => setFType(e.target.value)} style={inp}><option value="training">Träning</option><option value="admin">Administration</option><option value="event">Event</option><option value="other">Övrigt</option></select></Fld>
+            <Fld label="Typ"><select value={fType} onChange={e => setFType(e.target.value)} style={inp}><option value="training">Träning</option><option value="admin">Administration</option><option value="event">Evenemang</option><option value="other">Övrigt</option></select></Fld>
             <Fld label="Beskrivning"><input value={fDesc} onChange={e => setFDesc(e.target.value)} style={inp} placeholder="Vad gjordes?" /></Fld>
           </div>
           <button className="btn btn-outline" onClick={handleAdd} style={{ fontSize: 13 }}>Spara manuell tidrapport</button>
@@ -181,7 +181,7 @@ export default function TimeReportsPage() {
         )}
       </div>
 
-      {loading ? <div className="loading">Loading...</div> : <>
+      {loading ? <div className="loading">Laddar...</div> : <>
         {/* Trainer summary cards */}
         <div className="stat-grid" style={{ gridTemplateColumns: `repeat(${Math.min(Object.keys(trainerSummary).length + 1, 5)}, 1fr)`, marginBottom: 24 }}>
           <div className="stat-card"><div className="label">Totalt</div><div className="value" style={{ color: '#6366f1' }}>{data?.totalHours}h</div><div className="sub">{data?.reports?.length} rapporter</div></div>
@@ -199,7 +199,7 @@ export default function TimeReportsPage() {
                   <td style={{ fontWeight: 600 }}>{r.date}</td>
                   <td>{r.user_name}</td>
                   <td style={{ fontWeight: 600 }}>{r.hours}h</td>
-                  <td><span className={`badge ${r.type === 'training' ? 'badge-blue' : r.type === 'admin' ? 'badge-yellow' : 'badge-green'}`}>{r.type}</span></td>
+                  <td><span className={`badge ${r.type === 'training' ? 'badge-blue' : r.type === 'admin' ? 'badge-yellow' : 'badge-green'}`}>{({ training: 'Träning', admin: 'Administration', event: 'Evenemang', other: 'Övrigt' } as Record<string, string>)[r.type] ?? r.type}</span></td>
                   <td style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{r.description || '—'}</td>
                   <td><span className={`badge ${r.approved ? 'badge-green' : 'badge-yellow'}`}>{r.approved ? 'Godkänd' : 'Väntar'}</span></td>
                   <td>{!r.approved && <button className="btn btn-outline" style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => approve(r.id)}>Godkänn</button>}</td>
@@ -215,3 +215,4 @@ export default function TimeReportsPage() {
 
 function Fld({ label, children }: { label: string; children: React.ReactNode }) { return <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase' as const, letterSpacing: '0.7px' }}>{label}</label>{children}</div>; }
 const inp: React.CSSProperties = { padding: '9px 12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 13, width: '100%', fontFamily: 'inherit' };
+

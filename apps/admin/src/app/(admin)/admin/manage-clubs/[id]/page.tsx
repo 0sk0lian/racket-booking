@@ -114,11 +114,11 @@ export default function ClubDetailPage() {
     }).then((r) => r.json());
     setBusy(false);
 
-    if (!response.success) return setToast(response.error ?? 'Could not assign admin');
+    if (!response.success) return setToast(response.error ?? 'Kunde inte tilldela admin');
 
     setSelectedUserId('');
     await loadAssignments();
-    setToast('Admin assigned to venue');
+    setToast('Admin tilldelad till anläggningen');
   };
 
   const inviteByEmail = async () => {
@@ -133,12 +133,12 @@ export default function ClubDetailPage() {
     }).then((r) => r.json());
     setBusy(false);
 
-    if (!response.success) return setToast(response.error ?? 'Could not invite admin');
+    if (!response.success) return setToast(response.error ?? 'Kunde inte bjuda in admin');
 
     if (response.data?.tempPassword) {
       setInviteResult({ tempPassword: response.data.tempPassword, email: response.data.email });
     } else {
-      setToast(`${response.data.email} assigned as ${inviteRole}`);
+      setToast(`${response.data.email} tilldelades som ${inviteRole}`);
     }
 
     setInviteEmail('');
@@ -154,10 +154,10 @@ export default function ClubDetailPage() {
     }).then((r) => r.json());
     setBusy(false);
 
-    if (!response.success) return setToast(response.error ?? 'Could not remove assignment');
+    if (!response.success) return setToast(response.error ?? 'Kunde inte ta bort tilldelningen');
 
     await loadAssignments();
-    setToast('Admin removed from venue');
+    setToast('Admin borttagen från anläggningen');
   };
 
   const createMembershipType = async () => {
@@ -175,40 +175,40 @@ export default function ClubDetailPage() {
       }),
     }).then((r) => r.json());
     setBusy(false);
-    if (!response.success) return setToast(response.error ?? 'Could not create membership type');
+    if (!response.success) return setToast(response.error ?? 'Kunde inte skapa medlemskapstyp');
     setNewType({ name: '', description: '', price: '', interval: 'month' });
     await loadMembershipTypes();
-    setToast('Membership type created');
+    setToast('Medlemskapstyp skapad');
   };
 
   const deleteMembershipType = async (typeId: string) => {
     setBusy(true);
     const response = await fetch(`${API}/membership-types?id=${typeId}`, { method: 'DELETE' }).then((r) => r.json());
     setBusy(false);
-    if (!response.success) return setToast(response.error ?? 'Could not delete');
+    if (!response.success) return setToast(response.error ?? 'Kunde inte ta bort');
     await loadMembershipTypes();
-    setToast('Membership type removed');
+    setToast('Medlemskapstyp borttagen');
   };
 
   const deleteClub = async () => {
-    if (!window.confirm('Delete this venue? This cannot be undone.')) return;
+    if (!window.confirm('Ta bort den här anläggningen? Det går inte att ångra.')) return;
 
     setDeletingClub(true);
     const response = await fetch(`${API}/clubs/${id}`, { method: 'DELETE' }).then((r) => r.json());
     setDeletingClub(false);
 
-    if (!response.success) return setToast(response.error ?? 'Could not delete venue');
+    if (!response.success) return setToast(response.error ?? 'Kunde inte ta bort anläggningen');
     router.push('/admin/manage-clubs');
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <div className="loading">Laddar...</div>;
 
   if (!club) {
     return (
       <div className="empty-state">
-        <h3>Venue not found</h3>
+        <h3>Anläggningen hittades inte</h3>
         <Link href="/admin/manage-clubs" style={{ color: '#6366f1' }}>
-          Back
+          Tillbaka
         </Link>
       </div>
     );
@@ -219,7 +219,7 @@ export default function ClubDetailPage() {
       <div className="page-header">
         <div>
           <Link href="/admin/manage-clubs" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: 12 }}>
-            Back to venues
+            Tillbaka till anläggningar
           </Link>
           <h1 style={{ marginTop: 4 }}>{club.name}</h1>
         </div>
@@ -230,7 +230,7 @@ export default function ClubDetailPage() {
             disabled={deletingClub}
             style={{ borderColor: '#ef4444', color: '#ef4444' }}
           >
-            {deletingClub ? 'Deleting...' : 'Delete venue'}
+            {deletingClub ? 'Tar bort...' : 'Ta bort anläggning'}
           </button>
         )}
       </div>
@@ -253,17 +253,17 @@ export default function ClubDetailPage() {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
-        <InfoCard label="Org number" value={club.organization_number ?? '-'} />
-        <InfoCard label="City" value={club.city ?? '-'} />
-        <InfoCard label="Email" value={club.contact_email ?? '-'} />
-        <InfoCard label="Phone" value={club.contact_phone ?? '-'} />
-        <InfoCard label="Type" value={club.is_non_profit ? 'Non-profit' : 'Commercial'} />
-        <InfoCard label="Timezone" value={club.timezone ?? 'Europe/Stockholm'} />
+        <InfoCard label="Org.nr" value={club.organization_number ?? '-'} />
+        <InfoCard label="Stad" value={club.city ?? '-'} />
+        <InfoCard label="E-post" value={club.contact_email ?? '-'} />
+        <InfoCard label="Telefon" value={club.contact_phone ?? '-'} />
+        <InfoCard label="Typ" value={club.is_non_profit ? 'Ideell' : 'Kommersiell'} />
+        <InfoCard label="Tidszon" value={club.timezone ?? 'Europe/Stockholm'} />
       </div>
 
       {meRole === 'superadmin' && (
         <div style={{ marginBottom: 22 }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10 }}>Tenant Admins</h2>
+          <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10 }}>Anläggningsadmins</h2>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14 }}>
             {/* Invite by email */}
             <div style={{ marginBottom: 14 }}>
@@ -277,12 +277,12 @@ export default function ClubDetailPage() {
                   style={inputStyle}
                 />
                 <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as any)} style={inputStyle}>
-                  <option value="owner">Owner</option>
+                  <option value="owner">Ägare</option>
                   <option value="admin">Admin</option>
-                  <option value="staff">Staff</option>
+                  <option value="staff">Personal</option>
                 </select>
                 <button onClick={inviteByEmail} disabled={!inviteEmail.trim() || busy} className="btn btn-primary">
-                  {busy ? '...' : 'Invite'}
+                  {busy ? '...' : 'Bjud in'}
                 </button>
               </div>
             </div>
@@ -305,7 +305,7 @@ export default function ClubDetailPage() {
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>Eller tilldela befintlig användare</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px auto', gap: 8, alignItems: 'center', marginBottom: 12 }}>
               <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} style={inputStyle}>
-                <option value="">Select user</option>
+                <option value="">Välj användare</option>
                 {unassignedUsers.map((user) => (
                   <option key={user.id} value={user.id}>
                     {user.full_name} ({user.email})
@@ -318,18 +318,18 @@ export default function ClubDetailPage() {
                 onChange={(e) => setSelectedRole(e.target.value as 'owner' | 'admin' | 'staff')}
                 style={inputStyle}
               >
-                <option value="owner">Owner</option>
+                <option value="owner">Ägare</option>
                 <option value="admin">Admin</option>
-                <option value="staff">Staff</option>
+                <option value="staff">Personal</option>
               </select>
 
               <button onClick={assignUser} disabled={!selectedUserId || busy} className="btn btn-primary">
-                Assign
+                Tilldela
               </button>
             </div>
 
             {assignments.length === 0 ? (
-              <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>No assigned admins for this venue yet.</p>
+              <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>Inga admins är tilldelade till den här anläggningen ännu.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {assignments.map((row) => (
@@ -347,7 +347,7 @@ export default function ClubDetailPage() {
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700 }}>{row.user_name}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                        {row.user_email ?? '-'} | platform role: {row.user_role ?? '-'}
+                        {row.user_email ?? '-'} | plattformsroll: {row.user_role ?? '-'}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -358,7 +358,7 @@ export default function ClubDetailPage() {
                         onClick={() => removeUser(row.user_id)}
                         disabled={busy}
                       >
-                        Remove
+                        Ta bort
                       </button>
                     </div>
                   </div>
@@ -375,7 +375,7 @@ export default function ClubDetailPage() {
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>Skapa ny typ</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 100px 130px auto', gap: 8, alignItems: 'center', marginBottom: 14 }}>
-            <input value={newType.name} onChange={(e) => setNewType((p) => ({ ...p, name: e.target.value }))} placeholder="Namn (t.ex. Gold)" style={inputStyle} />
+            <input value={newType.name} onChange={(e) => setNewType((p) => ({ ...p, name: e.target.value }))} placeholder="Namn (t.ex. Guld)" style={inputStyle} />
             <input value={newType.description} onChange={(e) => setNewType((p) => ({ ...p, description: e.target.value }))} placeholder="Beskrivning" style={inputStyle} />
             <input value={newType.price} onChange={(e) => setNewType((p) => ({ ...p, price: e.target.value }))} placeholder="Pris" type="number" min="0" style={inputStyle} />
             <select value={newType.interval} onChange={(e) => setNewType((p) => ({ ...p, interval: e.target.value }))} style={inputStyle}>
@@ -416,7 +416,7 @@ export default function ClubDetailPage() {
         </div>
       </div>
 
-      <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>Courts ({courts.length})</h2>
+      <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>Banor ({courts.length})</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {courts.map((court) => (
           <div
@@ -433,7 +433,7 @@ export default function ClubDetailPage() {
             <div>
               <span style={{ fontWeight: 600 }}>{court.name}</span>
               <span style={{ color: 'var(--text-dim)', fontSize: 12, marginLeft: 8, textTransform: 'capitalize' }}>
-                {court.sport_type} | {court.is_indoor ? 'Indoor' : 'Outdoor'}
+                {court.sport_type} | {court.is_indoor ? 'Inomhus' : 'Utomhus'}
               </span>
             </div>
             <span style={{ fontWeight: 600, color: '#6366f1' }}>{court.base_hourly_rate} SEK/h</span>

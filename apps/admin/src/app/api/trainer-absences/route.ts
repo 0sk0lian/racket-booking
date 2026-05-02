@@ -1,10 +1,10 @@
 /**
- * GET  /api/trainer-absences?clubId=&status=open  — list absences (for trainers to see claimable sessions)
- * POST /api/trainer-absences                       — trainer reports absence
+ * GET  /api/trainer-absences?clubId=&status=open - list reported absences
+ * POST /api/trainer-absences                     - report absence for a specific session
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../lib/supabase/server';
-import { requireUser } from '../../../lib/auth/guards';
+import { requireClubAccess, requireUser } from '../../../lib/auth/guards';
 
 export async function GET(request: NextRequest) {
   const auth = await requireUser();
@@ -18,34 +18,47 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createSupabaseAdminClient();
+  if (auth.role === 'trainer') {
+    const { data: trainer } = await supabase
+      .from('users')
+      .select('trainer_club_id')
+      .eq('id', auth.user.id)
+      .single();
+    if ((trainer?.trainer_club_id as string | null) !== clubId) {
+      return NextResponse.json({ success: false, error: 'Du har inte tillgång till denna klubb' }, { status: 403 });
+    }
+  } else {
+    const access = await requireClubAccess(clubId);
+    if (!access.ok) return access.response;
+  }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('trainer_absences')
     .select('*')
     .eq('club_id', clubId)
-    .eq('status', status)
     .order('session_date', { ascending: true });
+  if (status !== 'all') query = query.eq('status', status);
 
+  const { data, error } = await query;
   if (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 
-  // Enrich with trainer names
   const trainerIds = new Set<string>();
-  (data ?? []).forEach(a => {
-    trainerIds.add(a.trainer_id);
-    if (a.claimed_by) trainerIds.add(a.claimed_by);
+  (data ?? []).forEach((absence) => {
+    trainerIds.add(absence.trainer_id);
+    if (absence.claimed_by) trainerIds.add(absence.claimed_by);
   });
 
   const { data: users } = trainerIds.size > 0
     ? await supabase.from('users').select('id, full_name').in('id', Array.from(trainerIds))
-    : { data: [] };
-  const userMap = new Map((users ?? []).map(u => [u.id, u.full_name]));
+    : { data: [] as any[] };
+  const userMap = new Map((users ?? []).map((user) => [user.id, user.full_name]));
 
-  const enriched = (data ?? []).map(a => ({
-    ...a,
-    trainer_name: userMap.get(a.trainer_id) ?? 'Unknown',
-    claimed_by_name: a.claimed_by ? (userMap.get(a.claimed_by) ?? 'Unknown') : null,
+  const enriched = (data ?? []).map((absence) => ({
+    ...absence,
+    trainer_name: userMap.get(absence.trainer_id) ?? 'Okänd tränare',
+    claimed_by_name: absence.claimed_by ? (userMap.get(absence.claimed_by) ?? 'Okänd tränare') : null,
   }));
 
   return NextResponse.json({ success: true, data: enriched });
@@ -56,46 +69,57 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
-  const { bookingId, reason } = body;
+  const bookingId = body?.bookingId as string | undefined;
+  const reason = body?.reason as string | undefined;
 
   if (!bookingId) {
     return NextResponse.json({ success: false, error: 'bookingId required' }, { status: 400 });
   }
 
   const supabase = createSupabaseAdminClient();
-
-  // Fetch the booking to get session details
-  const { data: booking, error: bErr } = await supabase
+  const { data: booking, error: bookingError } = await supabase
     .from('bookings')
     .select('id, court_id, trainer_id, time_slot_start, time_slot_end')
     .eq('id', bookingId)
     .single();
 
-  if (bErr || !booking) {
-    return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
+  if (bookingError || !booking) {
+    return NextResponse.json({ success: false, error: 'Passet hittades inte' }, { status: 404 });
   }
 
-  // Verify the requesting user is the trainer on this booking
   if (booking.trainer_id !== auth.user.id && auth.role !== 'admin' && auth.role !== 'superadmin') {
-    return NextResponse.json({ success: false, error: 'You are not the trainer for this booking' }, { status: 403 });
+    return NextResponse.json({ success: false, error: 'Du är inte tränare för detta pass' }, { status: 403 });
   }
 
-  // Get club_id from the court
   const { data: court } = await supabase
     .from('courts')
     .select('club_id')
     .eq('id', booking.court_id)
     .single();
 
-  if (!court) {
-    return NextResponse.json({ success: false, error: 'Court not found' }, { status: 404 });
+  if (!court?.club_id) {
+    return NextResponse.json({ success: false, error: 'Banan hittades inte' }, { status: 404 });
+  }
+
+  if (auth.role !== 'trainer') {
+    const access = await requireClubAccess(court.club_id);
+    if (!access.ok) return access.response;
   }
 
   const sessionDate = booking.time_slot_start.split('T')[0];
   const startHour = new Date(booking.time_slot_start).getHours();
   const endHour = new Date(booking.time_slot_end).getHours();
 
-  const { data: absence, error: insertErr } = await supabase
+  const { data: existing } = await supabase
+    .from('trainer_absences')
+    .select('id, status')
+    .eq('booking_id', bookingId)
+    .maybeSingle();
+  if (existing && existing.status !== 'cancelled') {
+    return NextResponse.json({ success: false, error: 'Det finns redan en frånvarorapport för detta pass' }, { status: 400 });
+  }
+
+  const { data: absence, error: insertError } = await supabase
     .from('trainer_absences')
     .insert({
       trainer_id: booking.trainer_id,
@@ -110,8 +134,8 @@ export async function POST(request: NextRequest) {
     .select()
     .single();
 
-  if (insertErr) {
-    return NextResponse.json({ success: false, error: insertErr.message }, { status: 500 });
+  if (insertError) {
+    return NextResponse.json({ success: false, error: insertError.message }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, data: absence }, { status: 201 });

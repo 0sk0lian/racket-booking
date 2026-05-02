@@ -6,6 +6,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
 import { requireClubAccess } from '../../../../lib/auth/guards';
 
+function parseRateMap(value: unknown): Record<string, number> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out: Record<string, number> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    const rate = Number(raw);
+    if (Number.isFinite(rate) && rate >= 0) out[key] = rate;
+  }
+  return out;
+}
+
+function categoryFromReport(report: { description?: string | null; type?: string | null }) {
+  const match = report.description?.match(/\[cat:([a-zA-Z0-9_-]+)\]/);
+  return match?.[1] ?? report.type ?? 'other';
+}
+
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
   const clubId = p.get('clubId');
@@ -58,7 +73,7 @@ export async function GET(request: NextRequest) {
   // Trainer costs: sum of approved time_reports for this club in the date range
   const { data: timeReports } = await supabase
     .from('time_reports')
-    .select('hours, user_id')
+    .select('hours, user_id, type, description')
     .eq('club_id', clubId)
     .eq('approved', true)
     .gte('date', from)
@@ -66,17 +81,24 @@ export async function GET(request: NextRequest) {
 
   // Look up hourly rates for trainers referenced in time reports
   const trainerUserIds = [...new Set((timeReports ?? []).map(r => r.user_id))];
-  let trainerRateMap = new Map<string, number>();
+  const trainerRateMap = new Map<string, { defaultRate: number; rates: Record<string, number> }>();
   if (trainerUserIds.length > 0) {
     const { data: trainers } = await supabase
-      .from('trainers')
-      .select('user_id, hourly_rate')
-      .in('user_id', trainerUserIds);
-    trainerRateMap = new Map((trainers ?? []).map(t => [t.user_id, Number(t.hourly_rate ?? 0)]));
+      .from('users')
+      .select('id, trainer_hourly_rate, trainer_rates')
+      .in('id', trainerUserIds);
+    for (const trainer of trainers ?? []) {
+      trainerRateMap.set(trainer.id, {
+        defaultRate: Number(trainer.trainer_hourly_rate ?? 0),
+        rates: parseRateMap(trainer.trainer_rates),
+      });
+    }
   }
 
   const trainerCosts = (timeReports ?? []).reduce((sum, r) => {
-    const rate = trainerRateMap.get(r.user_id) ?? 0;
+    const config = trainerRateMap.get(r.user_id) ?? { defaultRate: 0, rates: {} };
+    const category = categoryFromReport(r);
+    const rate = Number(config.rates[category] ?? config.defaultRate);
     return sum + (Number(r.hours ?? 0) * rate);
   }, 0);
 

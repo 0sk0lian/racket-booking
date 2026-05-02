@@ -75,8 +75,8 @@ export async function GET(request: NextRequest) {
   const clubCourseIds = new Set((clubCourses ?? []).map(c => c.id));
   const pendingCourseRegsCount = (pendingCourseRegs ?? []).filter(r => clubCourseIds.has(r.course_id)).length;
 
-  const { data: sickLeaves } = await supabase.from('sick_leaves')
-    .select('id').eq('club_id', clubId).eq('status', 'active');
+  const { data: openAbsences } = await supabase.from('trainer_absences')
+    .select('id').eq('club_id', clubId).eq('status', 'open');
 
   // Active members count
   const { data: activeMembers } = await supabase.from('club_memberships')
@@ -144,8 +144,8 @@ export async function GET(request: NextRequest) {
       pending: {
         memberships: pendingMembershipsCount,
         course_registrations: pendingCourseRegsCount,
-        sick_leaves: sickLeaves?.length ?? 0,
-        total: pendingMembershipsCount + pendingCourseRegsCount + (sickLeaves?.length ?? 0),
+        sick_leaves: openAbsences?.length ?? 0,
+        total: pendingMembershipsCount + pendingCourseRegsCount + (openAbsences?.length ?? 0),
       },
       active_members: activeMembersCount,
       expiring_memberships: expiringMembershipsCount,

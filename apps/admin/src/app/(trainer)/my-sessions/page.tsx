@@ -5,7 +5,7 @@
 import { useEffect, useState, useCallback } from 'react';
 
 const API = '/api';
-const DAY_NAMES = ['Sondag', 'Mandag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lordag'];
+const DAY_NAMES = ['Söndag', 'Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag'];
 
 interface TrainerProfile {
   id: string;
@@ -62,7 +62,12 @@ export default function MySessionsPage() {
 
   // Load sessions
   const loadSessions = useCallback(async () => {
-    if (!profile?.trainer_club_id) return;
+    if (!profile) return;
+    if (!profile.trainer_club_id) {
+      setSessions([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const r = await fetch(`${API}/training-planner?clubId=${profile.trainer_club_id}`);
@@ -103,9 +108,9 @@ export default function MySessionsPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>Mina Pass</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>Mina pass</h1>
           <p style={{ color: 'var(--text-dim)', fontSize: 13, marginTop: 4 }}>
-            Dina traningspass denna vecka
+            Dina träningspass denna vecka
           </p>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

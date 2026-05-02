@@ -6,6 +6,7 @@ interface Membership { id: string; club_id: string; status: string; membership_t
 
 const STATUS: Record<string, { label: string; bg: string; color: string }> = {
   pending: { label: 'Väntar', bg: '#fef3c7', color: '#b45309' },
+  approved: { label: 'Godkänd - väntar på betalning', bg: '#eef2ff', color: '#4f46e5' },
   active: { label: 'Aktiv', bg: '#ecfdf5', color: '#059669' },
   suspended: { label: 'Pausad', bg: '#fef2f2', color: '#dc2626' },
   cancelled: { label: 'Avslutad', bg: '#f1f5f9', color: '#64748b' },
@@ -60,3 +61,4 @@ export default function MyMembershipsPage() {
     </div>
   );
 }
+

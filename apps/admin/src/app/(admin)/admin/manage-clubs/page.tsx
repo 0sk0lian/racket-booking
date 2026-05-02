@@ -53,7 +53,7 @@ export default function ManageClubsPage() {
 
     if (!response.success) {
       setBusy(false);
-      return setToast(response.error ?? 'Could not create venue');
+      return setToast(response.error ?? 'Kunde inte skapa anläggning');
     }
 
     const clubId = response.data.id;
@@ -72,19 +72,19 @@ export default function ManageClubsPage() {
           email: inviteResponse.data.email,
         });
       } else if (!inviteResponse.success) {
-        setToast(`Venue created but admin invite failed: ${inviteResponse.error}`);
+        setToast(`Anläggningen skapades men admininbjudan misslyckades: ${inviteResponse.error}`);
       }
     }
 
     setBusy(false);
     setNewClub({ name: '', city: '', organizationNumber: '', timezone: 'Europe/Stockholm', adminEmail: '' });
     await load();
-    if (!inviteResult) setToast('Venue created');
+    if (!inviteResult) setToast('Anläggning skapad');
   };
 
   return (
     <div>
-      <div className="page-header"><h1>Alla Klubbar</h1></div>
+      <div className="page-header"><h1>Alla anläggningar</h1></div>
       {flash && (
         <div style={{ marginBottom: 12, borderRadius: 10, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#334155', fontSize: 12, fontWeight: 600, padding: '10px 14px' }}>
           {flash}
@@ -92,17 +92,17 @@ export default function ManageClubsPage() {
       )}
       {isSuperadmin && (
         <div style={{ marginBottom: 14, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14 }}>
-          <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 14 }}>Skapa ny venue</h3>
+          <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 14 }}>Skapa ny anläggning</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr', gap: 8, alignItems: 'center' }}>
             <input value={newClub.name} onChange={(e) => setNewClub((prev) => ({ ...prev, name: e.target.value }))} placeholder="Namn" style={inputStyle} />
             <input value={newClub.city} onChange={(e) => setNewClub((prev) => ({ ...prev, city: e.target.value }))} placeholder="Stad" style={inputStyle} />
             <input value={newClub.organizationNumber} onChange={(e) => setNewClub((prev) => ({ ...prev, organizationNumber: e.target.value }))} placeholder="Org.nr" style={inputStyle} />
-            <input value={newClub.timezone} onChange={(e) => setNewClub((prev) => ({ ...prev, timezone: e.target.value }))} placeholder="Timezone" style={inputStyle} />
+            <input value={newClub.timezone} onChange={(e) => setNewClub((prev) => ({ ...prev, timezone: e.target.value }))} placeholder="Tidszon" style={inputStyle} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center', marginTop: 8 }}>
-            <input value={newClub.adminEmail} onChange={(e) => setNewClub((prev) => ({ ...prev, adminEmail: e.target.value }))} placeholder="Admin email (valfritt — bjuder in som admin)" style={inputStyle} type="email" />
+            <input value={newClub.adminEmail} onChange={(e) => setNewClub((prev) => ({ ...prev, adminEmail: e.target.value }))} placeholder="Admin-e-post (valfritt — bjuder in som admin)" style={inputStyle} type="email" />
             <button className="btn btn-primary" onClick={createClub} disabled={busy || !newClub.name.trim()}>
-              {busy ? 'Skapar...' : 'Skapa venue'}
+              {busy ? 'Skapar...' : 'Skapa anläggning'}
             </button>
           </div>
         </div>
@@ -123,7 +123,7 @@ export default function ManageClubsPage() {
         </div>
       )}
       {loading ? <div className="loading">Laddar...</div> : clubs.length === 0 ? (
-        <div className="empty-state"><h3>Inga klubbar</h3></div>
+          <div className="empty-state"><h3>Inga anläggningar</h3></div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {clubs.map(c => (

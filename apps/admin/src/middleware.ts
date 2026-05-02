@@ -1,11 +1,8 @@
 /**
  * Auth gate for the entire admin app.
  *
- * Two responsibilities:
- *   1. Refresh the Supabase session cookies on every request (otherwise the
- *      session can expire mid-use).
- *   2. Enforce route-level access policy — auth check only, NO database queries.
- *      Role-based checks are handled by the auth guards in each Route Handler.
+ * 1. Refresh Supabase session cookies on every request.
+ * 2. Enforce route-level auth without doing role database checks here.
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from './lib/supabase/middleware';
@@ -13,25 +10,11 @@ import { updateSession } from './lib/supabase/middleware';
 const PUBLIC_PATHS = [
   '/login',
   '/auth/callback',
-  '/clubs',
 ];
-
-const EXACT_PUBLIC = ['/', '/clubs'];
 
 function isPublicApiRequest(path: string, method: string) {
   if (method !== 'GET') return false;
-  if (path === '/api/health') return true;
-
-  const publicGetPrefixes = [
-    '/api/clubs',
-    '/api/courts',
-    '/api/availability',
-    '/api/venue-profiles',
-    '/api/matches/browse',
-    '/api/courses',
-  ];
-
-  return publicGetPrefixes.some(prefix => path === prefix || path.startsWith(prefix + '/'));
+  return path === '/api/health';
 }
 
 function apiError(status: number, error: string) {
@@ -57,14 +40,10 @@ export async function middleware(request: NextRequest) {
       return apiError(401, 'Authentication required');
     }
 
-    // Admin role checks are handled by requireAdmin()/requireClubAccess()
-    // inside each Route Handler — no DB query needed here.
     return supabaseResponse;
   }
 
-  const isPublic =
-    EXACT_PUBLIC.includes(path) ||
-    PUBLIC_PATHS.some(p => path === p || path.startsWith(p + '/'));
+  const isPublic = PUBLIC_PATHS.some((publicPath) => path === publicPath || path.startsWith(publicPath + '/'));
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

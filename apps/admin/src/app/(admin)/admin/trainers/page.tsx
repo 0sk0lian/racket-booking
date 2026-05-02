@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 
 const API = '/api';
@@ -77,7 +77,7 @@ export default function ManageTrainersPage() {
         trainerCertifications: eCerts || null,
       }),
     });
-    flash(eRole === 'trainer' ? `${edit.full_name} updated as trainer` : `${edit.full_name} role set to ${eRole}`);
+    flash(eRole === 'trainer' ? `${edit.full_name} uppdaterades som tränare` : `${edit.full_name} fick rollen ${eRole}`);
     setEdit(null); setESaving(false);
     await reload();
   };
@@ -87,7 +87,7 @@ export default function ManageTrainersPage() {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role: 'trainer', trainerClubId: selectedClub, trainerSportTypes: ['padel'], trainerHourlyRate: 500 }),
     });
-    flash(`${u.full_name} promoted to trainer`);
+    flash(`${u.full_name} gjordes till tränare`);
     await reload();
   };
 
@@ -100,23 +100,23 @@ export default function ManageTrainersPage() {
   return (
     <div>
       <div className="page-header">
-        <h1>Manage Trainers</h1>
+        <h1>Hantera tränare</h1>
       </div>
       {toast && <div className="toast">{toast}</div>}
 
       {/* Club + tab */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, alignItems: 'flex-end' }}>
-        <Fld label="Club">
+        <Fld label="Klubb">
           <select value={selectedClub} onChange={e => setSelectedClub(e.target.value)} style={inp}>
             {clubs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </Fld>
         <div style={{ display: 'flex', gap: 4 }}>
           <button className={`btn ${tab === 'trainers' ? 'btn-primary' : 'btn-outline'}`} style={{ padding: '8px 16px', fontSize: 13 }} onClick={() => setTab('trainers')}>
-            Trainers ({trainers.length})
+            Tränare ({trainers.length})
           </button>
           <button className={`btn ${tab === 'all' ? 'btn-primary' : 'btn-outline'}`} style={{ padding: '8px 16px', fontSize: 13 }} onClick={() => setTab('all')}>
-            All Users ({nonTrainers.length})
+            Alla användare ({nonTrainers.length})
           </button>
         </div>
       </div>
@@ -124,21 +124,21 @@ export default function ManageTrainersPage() {
       {/* Trainer stats */}
       {tab === 'trainers' && trainers.length > 0 && (
         <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 24 }}>
-          <div className="stat-card"><div className="label">Active Trainers</div><div className="value" style={{ color: '#6366f1' }}>{trainers.length}</div></div>
-          <div className="stat-card"><div className="label">Total Weekly Hours</div><div className="value" style={{ color: '#06b6d4' }}>{totalWeeklyHours}h</div><div className="sub">{trainers.reduce((s, t) => s + t.weeklySessions, 0)} sessions</div></div>
-          <div className="stat-card"><div className="label">Monthly Salary Cost</div><div className="value" style={{ color: '#f59e0b' }}>{totalMonthlySalary.toLocaleString()}</div><div className="sub">SEK / month</div></div>
-          <div className="stat-card"><div className="label">Upcoming Sessions</div><div className="value" style={{ color: '#10b981' }}>{trainers.reduce((s, t) => s + t.upcomingBookedSessions, 0)}</div><div className="sub">Booked trainings</div></div>
+          <div className="stat-card"><div className="label">Aktiva tränare</div><div className="value" style={{ color: '#6366f1' }}>{trainers.length}</div></div>
+          <div className="stat-card"><div className="label">Totala timmar per vecka</div><div className="value" style={{ color: '#06b6d4' }}>{totalWeeklyHours}h</div><div className="sub">{trainers.reduce((s, t) => s + t.weeklySessions, 0)} pass</div></div>
+          <div className="stat-card"><div className="label">Månadskostnad lön</div><div className="value" style={{ color: '#f59e0b' }}>{totalMonthlySalary.toLocaleString()}</div><div className="sub">SEK / månad</div></div>
+          <div className="stat-card"><div className="label">Kommande pass</div><div className="value" style={{ color: '#10b981' }}>{trainers.reduce((s, t) => s + t.upcomingBookedSessions, 0)}</div><div className="sub">Bokade träningar</div></div>
         </div>
       )}
 
-      {loading ? <div className="loading">Loading...</div> : (
+      {loading ? <div className="loading">Laddar...</div> : (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Name</th><th>Email</th><th>Role</th>
-                {tab === 'trainers' && <><th>Sports</th><th>Hourly Rate</th><th>Monthly Salary</th><th>Weekly Hours</th><th>Sessions</th></>}
-                <th>Actions</th>
+                <th>Namn</th><th>E-post</th><th>Roll</th>
+                {tab === 'trainers' && <><th>Sporter</th><th>Timpris</th><th>Månadslön</th><th>Timmar/vecka</th><th>Pass</th></>}
+                <th>Åtgärder</th>
               </tr>
             </thead>
             <tbody>
@@ -169,16 +169,16 @@ export default function ManageTrainersPage() {
                         </div>
                       </div>
                     </td>
-                    <td>{u.weeklySessions} <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>weekly</span> / {u.upcomingBookedSessions} <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>booked</span></td>
+                    <td>{u.weeklySessions} <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>veckovis</span> / {u.upcomingBookedSessions} <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>bokade</span></td>
                   </>}
                   <td>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button className="btn btn-outline" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => openEdit(u)}>
-                        {u.role === 'trainer' ? 'Edit' : 'Manage'}
+                        {u.role === 'trainer' ? 'Redigera' : 'Hantera'}
                       </button>
                       {u.role !== 'trainer' && (
                         <button className="btn btn-primary" style={{ padding: '5px 12px', fontSize: 11 }} onClick={() => quickPromote(u)}>
-                          Make Trainer
+                          Gör till tränare
                         </button>
                       )}
                     </div>
@@ -201,13 +201,13 @@ export default function ManageTrainersPage() {
 
             {/* User info */}
             <div style={{ background: 'var(--bg-body)', borderRadius: 10, padding: 14, marginBottom: 20, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-              <Info l="Email" v={edit.email} />
-              <Info l="Phone" v={edit.phone_number || '—'} />
-              <Info l="Matches Played" v={String(edit.matches_played)} />
+              <Info l="E-post" v={edit.email} />
+              <Info l="Telefon" v={edit.phone_number || '—'} />
+              <Info l="Spelade matcher" v={String(edit.matches_played)} />
             </div>
 
             {/* Role selector */}
-            <Fld label="Role">
+            <Fld label="Roll">
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 {['player', 'trainer', 'admin'].map(r => (
                   <button key={r} onClick={() => setERole(r)} style={{
@@ -224,9 +224,9 @@ export default function ManageTrainersPage() {
             {/* Trainer-specific fields */}
             {eRole === 'trainer' && (
               <div style={{ background: '#f8f9ff', border: '1px solid #e0e7ff', borderRadius: 12, padding: 20, marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#4f46e5', marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Trainer Details</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#4f46e5', marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tränaruppgifter</div>
 
-                <Fld label="Sports">
+                <Fld label="Sporter">
                   <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
                     {SPORTS.map(s => {
                       const on = eSports.includes(s);
@@ -240,36 +240,36 @@ export default function ManageTrainersPage() {
                 </Fld>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-                  <Fld label="Hourly Rate (SEK)">
-                    <input type="number" min="0" value={eRate} onChange={e => setERate(e.target.value)} style={inp} placeholder="e.g. 600" />
+                  <Fld label="Timpris (SEK)">
+                    <input type="number" min="0" value={eRate} onChange={e => setERate(e.target.value)} style={inp} placeholder="t.ex. 600" />
                   </Fld>
-                  <Fld label="Monthly Salary (SEK)">
-                    <input type="number" min="0" value={eSalary} onChange={e => setESalary(e.target.value)} style={inp} placeholder="e.g. 28000" />
+                  <Fld label="Månadslön (SEK)">
+                    <input type="number" min="0" value={eSalary} onChange={e => setESalary(e.target.value)} style={inp} placeholder="t.ex. 28000" />
                   </Fld>
                 </div>
 
                 <Fld label="Bio">
-                  <textarea value={eBio} onChange={e => setEBio(e.target.value)} rows={2} style={{ ...inp, resize: 'vertical' as const, fontFamily: 'inherit' }} placeholder="Short trainer bio..." />
+                  <textarea value={eBio} onChange={e => setEBio(e.target.value)} rows={2} style={{ ...inp, resize: 'vertical' as const, fontFamily: 'inherit' }} placeholder="Kort tränarpresentation..." />
                 </Fld>
 
                 <div style={{ marginTop: 14 }}>
-                  <Fld label="Certifications">
-                    <input value={eCerts} onChange={e => setECerts(e.target.value)} style={inp} placeholder="e.g. WPT Level 2, SvTF B-trainer" />
+                  <Fld label="Certifieringar">
+                    <input value={eCerts} onChange={e => setECerts(e.target.value)} style={inp} placeholder="t.ex. WPT nivå 2, SvTF B-tränare" />
                   </Fld>
                 </div>
 
                 {/* Schedule summary */}
                 {edit.role === 'trainer' && (
                   <div style={{ marginTop: 16, background: '#fff', borderRadius: 8, padding: 14, border: '1px solid #e0e7ff' }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Current Schedule</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Nuvarande schema</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, fontSize: 13 }}>
-                      <div><span style={{ color: 'var(--text-muted)' }}>Weekly hours:</span> <strong>{edit.weeklyHours}h</strong></div>
-                      <div><span style={{ color: 'var(--text-muted)' }}>Sessions/week:</span> <strong>{edit.weeklySessions}</strong></div>
-                      <div><span style={{ color: 'var(--text-muted)' }}>Upcoming:</span> <strong>{edit.upcomingBookedSessions}</strong></div>
+                      <div><span style={{ color: 'var(--text-muted)' }}>Timmar/vecka:</span> <strong>{edit.weeklyHours}h</strong></div>
+                      <div><span style={{ color: 'var(--text-muted)' }}>Pass/vecka:</span> <strong>{edit.weeklySessions}</strong></div>
+                      <div><span style={{ color: 'var(--text-muted)' }}>Kommande:</span> <strong>{edit.upcomingBookedSessions}</strong></div>
                     </div>
                     {edit.trainer_hourly_rate && edit.weeklyHours > 0 && (
                       <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-                        Est. weekly earnings: <strong style={{ color: 'var(--text)' }}>{(edit.trainer_hourly_rate * edit.weeklyHours).toLocaleString()} SEK</strong>
+                        Beräknad veckointäkt: <strong style={{ color: 'var(--text)' }}>{(edit.trainer_hourly_rate * edit.weeklyHours).toLocaleString()} SEK</strong>
                       </div>
                     )}
                   </div>
@@ -279,9 +279,9 @@ export default function ManageTrainersPage() {
 
             <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
               <button className="btn btn-primary" onClick={handleSave} disabled={eSaving} style={{ flex: 1 }}>
-                {eSaving ? 'Saving...' : 'Save Changes'}
+                {eSaving ? 'Sparar...' : 'Spara ändringar'}
               </button>
-              <button className="btn btn-outline" onClick={() => setEdit(null)}>Cancel</button>
+              <button className="btn btn-outline" onClick={() => setEdit(null)}>Avbryt</button>
             </div>
           </div>
         </div>
@@ -297,3 +297,4 @@ const lbl: React.CSSProperties = { display: 'block', fontSize: 11, fontWeight: 6
 const inp: React.CSSProperties = { padding: '9px 12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 13, transition: 'all 0.2s', width: '100%', fontFamily: 'inherit' };
 const overlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, animation: 'fadeIn 0.2s ease' };
 const modal: React.CSSProperties = { background: 'var(--bg-card)', borderRadius: 18, padding: 32, width: 600, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.12)', border: '1px solid var(--border)', animation: 'fadeUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both' };
+

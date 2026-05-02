@@ -1,12 +1,10 @@
 /**
  * POST /api/trainer-absences/[id]/claim
- * Another trainer claims an open absence session.
- * Updates absence status to 'claimed', reassigns the booking's trainer_id,
- * and creates time report adjustments for both trainers.
+ * Claim or assign an open replacement pass.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../lib/supabase/server';
-import { requireUser } from '../../../../../lib/auth/guards';
+import { requireClubAccess, requireUser } from '../../../../../lib/auth/guards';
 
 export async function POST(
   request: NextRequest,
@@ -16,107 +14,114 @@ export async function POST(
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const supabase = createSupabaseAdminClient();
+  const body = await request.json().catch(() => ({}));
+  const requestedTrainerId = body?.trainerId as string | undefined;
 
-  // 1. Fetch the absence
-  const { data: absence, error: aErr } = await supabase
+  const supabase = createSupabaseAdminClient();
+  const { data: absence, error: absenceError } = await supabase
     .from('trainer_absences')
     .select('*')
     .eq('id', id)
     .single();
 
-  if (aErr || !absence) {
-    return NextResponse.json({ success: false, error: 'Absence not found' }, { status: 404 });
+  if (absenceError || !absence) {
+    return NextResponse.json({ success: false, error: 'Frånvaroposten hittades inte' }, { status: 404 });
   }
 
   if (absence.status !== 'open') {
-    return NextResponse.json({ success: false, error: 'This absence has already been claimed or cancelled' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'Detta pass har redan tagits över eller stängts' }, { status: 400 });
   }
 
-  // Cannot claim your own absence
-  if (absence.trainer_id === auth.user.id) {
-    return NextResponse.json({ success: false, error: 'You cannot claim your own absence' }, { status: 400 });
+  let claimTrainerId = auth.user.id;
+  if (auth.role === 'trainer') {
+    if (requestedTrainerId && requestedTrainerId !== auth.user.id) {
+      return NextResponse.json({ success: false, error: 'Du kan bara ta över pass åt dig själv' }, { status: 403 });
+    }
+  } else {
+    const access = await requireClubAccess(absence.club_id);
+    if (!access.ok) return access.response;
+    claimTrainerId = requestedTrainerId || auth.user.id;
   }
 
-  // Verify claiming user is a trainer (or admin)
-  if (auth.role !== 'trainer' && auth.role !== 'admin' && auth.role !== 'superadmin') {
-    return NextResponse.json({ success: false, error: 'Only trainers can claim absences' }, { status: 403 });
+  if (claimTrainerId === absence.trainer_id) {
+    return NextResponse.json({ success: false, error: 'Frånvarande tränare kan inte ta över sitt eget pass' }, { status: 400 });
+  }
+
+  const { data: replacementTrainer } = await supabase
+    .from('users')
+    .select('id, role, trainer_club_id')
+    .eq('id', claimTrainerId)
+    .single();
+
+  if (!replacementTrainer || replacementTrainer.role !== 'trainer' || replacementTrainer.trainer_club_id !== absence.club_id) {
+    return NextResponse.json({ success: false, error: 'Ersättaren måste vara en tränare i samma klubb' }, { status: 400 });
   }
 
   const now = new Date().toISOString();
-
-  // 2. Update absence: mark as claimed
-  const { error: updateAbsErr } = await supabase
+  const { error: updateAbsenceError } = await supabase
     .from('trainer_absences')
     .update({
       status: 'claimed',
-      claimed_by: auth.user.id,
+      claimed_by: claimTrainerId,
       claimed_at: now,
     })
     .eq('id', id)
-    .eq('status', 'open'); // optimistic lock
+    .eq('status', 'open');
 
-  if (updateAbsErr) {
-    return NextResponse.json({ success: false, error: updateAbsErr.message }, { status: 500 });
+  if (updateAbsenceError) {
+    return NextResponse.json({ success: false, error: updateAbsenceError.message }, { status: 500 });
   }
 
-  // 3. Update the booking's trainer_id to the claiming trainer
   if (absence.booking_id) {
-    const { error: updateBookingErr } = await supabase
+    const { error: updateBookingError } = await supabase
       .from('bookings')
-      .update({ trainer_id: auth.user.id })
+      .update({ trainer_id: claimTrainerId })
       .eq('id', absence.booking_id);
 
-    if (updateBookingErr) {
-      // Log but don't fail — the claim itself succeeded
-      console.error('Failed to update booking trainer_id:', updateBookingErr.message);
+    if (updateBookingError) {
+      console.error('Failed to update booking trainer_id:', updateBookingError.message);
     }
   }
 
-  // 4. Create time report for the substitute trainer
-  // Note: the absent trainer's existing time report (if any) should be
-  // removed/unapproved by admin. We only create the substitute's entry here.
   const sessionHours = absence.session_end_hour && absence.session_start_hour
     ? absence.session_end_hour - absence.session_start_hour
     : 1;
 
-  // Remove any existing unapproved time report for the absent trainer on this booking
   if (absence.booking_id) {
-    const { error: delErr } = await supabase
+    const { error: deleteError } = await supabase
       .from('time_reports')
       .delete()
       .eq('user_id', absence.trainer_id)
       .eq('booking_id', absence.booking_id)
       .eq('approved', false);
 
-    if (delErr) {
-      console.error('Failed to remove absent trainer time report:', delErr.message);
+    if (deleteError) {
+      console.error('Failed to remove absent trainer time report:', deleteError.message);
     }
   }
 
-  // Positive time report for the substitute trainer
-  const { error: trPos } = await supabase
+  const { error: reportError } = await supabase
     .from('time_reports')
     .insert({
-      user_id: auth.user.id,
+      user_id: claimTrainerId,
       club_id: absence.club_id,
       date: absence.session_date,
       hours: sessionHours,
       type: 'training',
-      description: `Vikarie — overtog pass fran sjukanmald tranare`,
+      description: 'Vikariepass - övertog pass efter frånvaro',
       booking_id: absence.booking_id,
       approved: false,
     });
 
-  if (trPos) {
-    console.error('Failed to create substitute time report:', trPos.message);
+  if (reportError) {
+    console.error('Failed to create substitute time report:', reportError.message);
   }
 
   return NextResponse.json({
     success: true,
     data: {
       absence_id: id,
-      claimed_by: auth.user.id,
+      claimed_by: claimTrainerId,
       booking_id: absence.booking_id,
       session_date: absence.session_date,
       hours_transferred: sessionHours,

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import type { CSSProperties } from 'react';
 import { Fragment, useEffect, useMemo, useState } from 'react';
@@ -56,8 +56,8 @@ export default function UsersPage() {
       body: JSON.stringify(updates),
     }).then(r => r.json());
     setEditBusy(false);
-    if (!res.success) { flash(res.error ?? 'Could not update'); return false; }
-    flash('Updated');
+    if (!res.success) { flash(res.error ?? 'Kunde inte uppdatera'); return false; }
+    flash('Uppdaterad');
     // Refresh user list + detail
     const listRes = await fetch(`${API}/users?clubId=${clubId}`).then(r => r.json());
     setUsers(listRes.data || []);
@@ -83,6 +83,27 @@ export default function UsersPage() {
     const labels: Record<string, string> = { approved: 'Ansökan godkänd', active: 'Medlemskap aktiverat', suspended: 'Medlemskap pausat', cancelled: 'Avvisad' };
     flash(labels[status] ?? `Status: ${status}`);
     // Refresh both list and detail
+    const listRes = await fetch(`${API}/users?clubId=${clubId}`).then(r => r.json());
+    setUsers(listRes.data || []);
+    if (expandedId) {
+      const detailRes = await fetch(`${API}/features/player-detail/${expandedId}?clubId=${clubId}`).then(r => r.json());
+      setDetail(detailRes.data);
+    }
+  };
+
+  const markMembershipInvoicePaid = async (invoiceId: string) => {
+    setEditBusy(true);
+    const res = await fetch(`${API}/invoices/${invoiceId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'paid', paidMethod: 'manual' }),
+    }).then(r => r.json());
+    setEditBusy(false);
+    if (!res.success) {
+      flash(res.error ?? 'Kunde inte registrera betalningen');
+      return;
+    }
+    flash('Betalning registrerad');
     const listRes = await fetch(`${API}/users?clubId=${clubId}`).then(r => r.json());
     setUsers(listRes.data || []);
     if (expandedId) {
@@ -187,33 +208,33 @@ export default function UsersPage() {
           <div className="value" style={{ color: '#6366f1' }}>{users.length}</div>
         </div>
         <div className="stat-card">
-          <div className="label">Top Padel</div>
+          <div className="label">Bäst i padel</div>
           <div className="value" style={{ fontSize: 18, color: '#06b6d4' }}>{lbPadel[0]?.full_name || '-'}</div>
           <div className="sub">Elo: {lbPadel[0]?.elo || '-'}</div>
         </div>
         <div className="stat-card">
-          <div className="label">Trainers</div>
+          <div className="label">Tränare</div>
           <div className="value" style={{ color: '#8b5cf6' }}>{users.filter((u) => u.role === 'trainer').length}</div>
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 18, flexWrap: 'wrap' }}>
         <div>
-          <label style={lbl}>Club</label>
+          <label style={lbl}>Klubb</label>
           <select value={clubId} onChange={(e) => setClubId(e.target.value)} style={inp}>
             {clubs.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}
           </select>
         </div>
         <div style={{ minWidth: 260 }}>
-          <label style={lbl}>Search members</label>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name or email..." style={{ ...inp, minWidth: 260 }} />
+          <label style={lbl}>Sök medlemmar</label>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Namn eller e-post..." style={{ ...inp, minWidth: 260 }} />
         </div>
         <div>
-          <label style={lbl}>Filter role</label>
+          <label style={lbl}>Filtrera roll</label>
           <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as any)} style={inp}>
-            <option value="all">All roles</option>
-            <option value="player">Players</option>
-            <option value="trainer">Trainers</option>
+            <option value="all">Alla roller</option>
+            <option value="player">Spelare</option>
+            <option value="trainer">Tränare</option>
             <option value="admin">Admins</option>
             <option value="superadmin">Superadmins</option>
           </select>
@@ -221,38 +242,38 @@ export default function UsersPage() {
         <div>
           <label style={lbl}>Status</label>
           <select value={activeFilter} onChange={(e) => setActiveFilter(e.target.value as any)} style={inp}>
-            <option value="all">All</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            <option value="all">Alla</option>
+            <option value="active">Aktiva</option>
+            <option value="inactive">Inaktiva</option>
           </select>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <div style={{ alignSelf: 'center', fontSize: 12, color: 'var(--text-dim)' }}>{filteredUsers.length} members</div>
-          <Link href="/groups" className="btn btn-outline" style={{ padding: '8px 12px', fontSize: 12 }}>Member Categories</Link>
-          <Link href="/registration-forms" className="btn btn-outline" style={{ padding: '8px 12px', fontSize: 12 }}>Members Apply Form</Link>
+          <div style={{ alignSelf: 'center', fontSize: 12, color: 'var(--text-dim)' }}>{filteredUsers.length} medlemmar</div>
+          <Link href="/groups" className="btn btn-outline" style={{ padding: '8px 12px', fontSize: 12 }}>Medlemskategorier</Link>
+          <Link href="/registration-forms" className="btn btn-outline" style={{ padding: '8px 12px', fontSize: 12 }}>Medlemsansökan</Link>
         </div>
       </div>
 
-      {loading ? <div className="loading">Loading...</div> : (
+      {loading ? <div className="loading">Laddar...</div> : (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Member</th>
-                <th>Email</th>
-                <th>Role</th>
+                <th>Medlem</th>
+                <th>E-post</th>
+                <th>Roll</th>
                 <th>Padel Elo</th>
                 <th>Tennis Elo</th>
-                <th>Matches</th>
+                <th>Matcher</th>
                 <th>Medlemskap</th>
-                <th>Profile</th>
+                <th>Profil</th>
               </tr>
             </thead>
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '18px 8px' }}>
-                    No members match the current filters.
+                    Inga medlemmar matchar de valda filtren.
                   </td>
                 </tr>
               ) : filteredUsers.map((user) => (
@@ -264,7 +285,7 @@ export default function UsersPage() {
                     <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>{user.email}</td>
                     <td>
                       <span className={`badge ${user.role === 'trainer' ? 'badge-blue' : user.role === 'admin' || user.role === 'superadmin' ? 'badge-yellow' : 'badge-green'}`}>
-                        {user.role}
+                        {({ player: 'Spelare', trainer: 'Tränare', admin: 'Admin', superadmin: 'Superadmin' } as Record<string, string>)[user.role] ?? user.role}
                       </span>
                     </td>
                     <td><span className="badge badge-blue">{user.elo_padel}</span></td>
@@ -294,7 +315,7 @@ export default function UsersPage() {
                         style={{ padding: '4px 12px', fontSize: 11 }}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        Stats &rarr;
+                        Profil →
                       </Link>
                     </td>
                   </tr>
@@ -303,16 +324,16 @@ export default function UsersPage() {
                     <tr>
                       <td colSpan={8} style={{ padding: 0, background: 'var(--bg-body)' }}>
                         {detailLoading ? (
-                          <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>Loading details...</div>
+                          <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>Laddar detaljer...</div>
                         ) : detail ? (
                           <div style={{ padding: '16px 20px', animation: 'fadeUp 0.3s ease both' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
                               <div>
                                 <h4 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
-                                  Member Categories ({detail.groups.length})
+                                  Medlemskategorier ({detail.groups.length})
                                 </h4>
                                 {detail.groups.length === 0 ? (
-                                  <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>No groups</span>
+                                  <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Inga grupper</span>
                                 ) : (
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                     {detail.groups.map((group) => (
@@ -330,10 +351,10 @@ export default function UsersPage() {
 
                               <div>
                                 <h4 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
-                                  Sessions Assigned ({detail.sessions.length})
+                                  Tilldelade pass ({detail.sessions.length})
                                 </h4>
                                 {detail.sessions.length === 0 ? (
-                                  <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>No sessions</span>
+                                  <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Inga pass</span>
                                 ) : (
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                     {detail.sessions.slice(0, 5).map((session) => (
@@ -345,25 +366,25 @@ export default function UsersPage() {
                                         </div>
                                       </div>
                                     ))}
-                                    {detail.sessions.length > 5 && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>+{detail.sessions.length - 5} more</span>}
+                                    {detail.sessions.length > 5 && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>+{detail.sessions.length - 5} till</span>}
                                   </div>
                                 )}
                               </div>
 
                               <div>
                                 <h4 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
-                                  Member Data
+                                  Medlemsuppgifter
                                 </h4>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Name</span><span style={{ fontWeight: 600 }}>{detail.full_name}</span></div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Age</span><span style={{ fontWeight: 600 }}>{detail.age ?? '-'}</span></div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Email</span><span style={{ fontWeight: 600 }}>{detail.email}</span></div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Social number</span><span style={{ fontWeight: 600 }}>{detail.social_number ?? '-'}</span></div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Type of membership</span><span style={{ fontWeight: 600 }}>{detail.membership_type ?? '-'}</span></div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Sessions assigned</span><span style={{ fontWeight: 600 }}>{detail.sessions.length}</span></div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Bookings</span><span style={{ fontWeight: 600 }}>{detail.bookingCount}</span></div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Groups</span><span style={{ fontWeight: 600 }}>{detail.groups.length}</span></div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Forms</span><span style={{ fontWeight: 600 }}>{detail.submissions.length}</span></div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Namn</span><span style={{ fontWeight: 600 }}>{detail.full_name}</span></div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Ålder</span><span style={{ fontWeight: 600 }}>{detail.age ?? 'Ej angivet'}</span></div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>E-post</span><span style={{ fontWeight: 600 }}>{detail.email}</span></div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Personnummer</span><span style={{ fontWeight: 600 }}>{detail.social_number ?? 'Ej angivet'}</span></div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Medlemskapstyp</span><span style={{ fontWeight: 600 }}>{detail.membership_type ?? 'Ej angivet'}</span></div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Tilldelade pass</span><span style={{ fontWeight: 600 }}>{detail.sessions.length}</span></div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Bokningar</span><span style={{ fontWeight: 600 }}>{detail.bookingCount}</span></div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Grupper</span><span style={{ fontWeight: 600 }}>{detail.groups.length}</span></div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Formulär</span><span style={{ fontWeight: 600 }}>{detail.submissions.length}</span></div>
                                 </div>
                                 {/* Form answers from membership application */}
                                 {detail.memberships.some((m: any) => m.form_answers && Object.keys(m.form_answers).length > 0) && (
@@ -385,7 +406,7 @@ export default function UsersPage() {
 
                                 {/* Edit actions */}
                                 <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Actions</div>
+                                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Åtgärder</div>
                                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                     <select
                                       defaultValue={users.find(u => u.id === expandedId)?.role ?? 'player'}
@@ -393,8 +414,8 @@ export default function UsersPage() {
                                       disabled={editBusy}
                                       style={{ ...inp, minWidth: 100, padding: '4px 8px', fontSize: 11 }}
                                     >
-                                      <option value="player">Player</option>
-                                      <option value="trainer">Trainer</option>
+                                      <option value="player">Spelare</option>
+                                      <option value="trainer">Tränare</option>
                                       <option value="admin">Admin</option>
                                     </select>
                                     <button
@@ -426,7 +447,7 @@ export default function UsersPage() {
                                     </div>
                                     {detail.memberships.map((membership: any) => (
                                       <div key={`${membership.club_id}-${membership.status}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', padding: '4px 0' }}>
-                                        <span>{membership.club_name} - {membership.membership_type} ({membership.status})</span>
+                                        <span>{membership.club_name} - {membership.membership_type} ({({ active: 'Aktiv', pending: 'Väntande', approved: 'Godkänd', suspended: 'Pausad', rejected: 'Avslagen', cancelled: 'Avslutad' } as Record<string, string>)[membership.status] ?? membership.status})</span>
                                         <div style={{ display: 'flex', gap: 4 }}>
                                           {membership.status === 'pending' && (
                                             <>
@@ -436,6 +457,12 @@ export default function UsersPage() {
                                           )}
                                           {membership.status === 'rejected' && (
                                             <span style={{ fontSize: 10, color: '#dc2626', padding: '2px 6px', background: '#fef2f2', borderRadius: 4, fontWeight: 600 }}>Avslagen</span>
+                                          )}
+                                          {membership.status === 'approved' && membership.invoice_id && membership.payment_status !== 'paid' && (
+                                            <button onClick={() => markMembershipInvoicePaid(membership.invoice_id)} disabled={editBusy} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: '1px solid #a7f3d0', background: '#ecfdf5', color: '#059669', cursor: 'pointer', fontFamily: 'inherit' }}>Registrera betalning</button>
+                                          )}
+                                          {membership.status === 'approved' && membership.payment_status === 'paid' && (
+                                            <button onClick={() => updateMembership(membership.id, 'active')} disabled={editBusy} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: '1px solid #c7d2fe', background: '#eef2ff', color: '#4f46e5', cursor: 'pointer', fontFamily: 'inherit' }}>Aktivera nu</button>
                                           )}
                                           {membership.status === 'active' && (
                                             <button onClick={() => updateMembership(membership.id, 'suspended')} disabled={editBusy} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit' }}>Pausa</button>
@@ -497,3 +524,4 @@ const inp: CSSProperties = {
   minWidth: 150,
   fontFamily: 'inherit',
 };
+

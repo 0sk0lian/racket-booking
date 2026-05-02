@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 
-interface Club { id: string; name: string; city: string | null; contact_email: string | null; contact_phone: string | null; }
+interface Club { id: string; slug?: string | null; name: string; city: string | null; contact_email: string | null; contact_phone: string | null; }
 interface Court { id: string; name: string; sport_type: string; base_hourly_rate: number; is_indoor: boolean; }
 interface VenueProfile { description: string | null; amenities: string[]; opening_hours: { day: number; open: string; close: string }[]; booking_rules: { max_days_ahead: number; cancellation_hours: number }; }
 
@@ -20,12 +20,11 @@ export default function ClubDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // slug is currently the club UUID; in the future we'll add a slug field
     Promise.all([
       fetch('/api/clubs').then(r => r.json()),
       fetch(`/api/courts?clubId=${slug}`).then(r => r.json()),
     ]).then(([clubsRes, courtsRes]) => {
-      const found = (clubsRes.data ?? []).find((c: Club) => c.id === slug);
+      const found = (clubsRes.data ?? []).find((c: Club) => c.id === slug || c.slug === slug);
       setClub(found ?? null);
       setCourts(courtsRes.data ?? []);
 
@@ -66,7 +65,7 @@ export default function ClubDetailPage() {
             { href: `/clubs/${slug}`, label: 'Banor' },
             { href: `/clubs/${slug}/trainings`, label: 'Träning' },
             { href: `/clubs/${slug}/courses`, label: 'Kurser' },
-            { href: `/clubs/${slug}/events`, label: 'Event' },
+            { href: `/clubs/${slug}/events`, label: 'Evenemang' },
             { href: `/clubs/${slug}/matches`, label: 'Matcher' },
             { href: `/clubs/${slug}/book`, label: 'Boka tid' },
             { href: `/clubs/${slug}/membership`, label: 'Bli medlem' },
@@ -98,14 +97,14 @@ export default function ClubDetailPage() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 18, fontWeight: 700, color: '#6366f1' }}>{court.base_hourly_rate} SEK</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>per timme</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8' }}>/ timme</div>
                   </div>
                 </div>
               ))}
             </div>
 
             <Link href={`/clubs/${slug}/book`} style={{ display: 'inline-flex', alignItems: 'center', padding: '14px 32px', borderRadius: 12, fontSize: 16, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', textDecoration: 'none', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}>
-              Boka en tid
+              Boka tid
             </Link>
           </div>
 

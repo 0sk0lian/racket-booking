@@ -26,7 +26,7 @@ export default function AnalyticsPage() {
     });
   }, []);
 
-  if (loading || !overview) return <div className="loading">Loading analytics...</div>;
+  if (loading || !overview) return <div className="loading">Laddar analys...</div>;
 
   const sportEntries = Object.entries(overview.sportBreakdown);
   const totalSportMatches = sportEntries.reduce((s, [, v]) => s + v, 0);
@@ -41,25 +41,25 @@ export default function AnalyticsPage() {
 
   return (
     <div>
-      <div className="page-header"><h1>Analytics</h1></div>
+      <div className="page-header"><h1>Analys</h1></div>
 
       {/* KPI Cards */}
       <div className="stat-grid">
         <div className="stat-card">
-          <div className="label">Matches Played</div>
+          <div className="label">Spelade matcher</div>
           <div className="value">{overview.totalMatches}</div>
         </div>
         <div className="stat-card">
-          <div className="label">Active Players</div>
+          <div className="label">Aktiva spelare</div>
           <div className="value">{overview.totalPlayers}</div>
         </div>
         <div className="stat-card">
-          <div className="label">Close Matches (1 pt diff)</div>
+          <div className="label">Jämna matcher (1 poängs skillnad)</div>
           <div className="value" style={{ color: 'var(--yellow)' }}>{overview.closeMatches}</div>
-          <div className="sub">{totalSportMatches > 0 ? Math.round((overview.closeMatches / totalSportMatches) * 100) : 0}% of all matches</div>
+          <div className="sub">{totalSportMatches > 0 ? Math.round((overview.closeMatches / totalSportMatches) * 100) : 0}% av alla matcher</div>
         </div>
         <div className="stat-card">
-          <div className="label">Decisive Wins (4+ pts)</div>
+          <div className="label">Klara segrar (4+ poäng)</div>
           <div className="value" style={{ color: 'var(--green)' }}>{overview.decisiveMatches}</div>
         </div>
       </div>
@@ -67,7 +67,7 @@ export default function AnalyticsPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, marginBottom: 32 }}>
         {/* Activity Over Time — Bar Chart */}
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 24, boxShadow: 'var(--shadow-sm)' }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Weekly Activity</h3>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Veckoaktivitet</h3>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 180 }}>
             {overview.weeksData.map((w, i) => {
               const maxVal = Math.max(...overview.weeksData.map(d => d.matches + d.bookings), 1);
@@ -76,8 +76,8 @@ export default function AnalyticsPage() {
               return (
                 <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
-                    <div style={{ width: 32, height: matchH, background: 'linear-gradient(180deg, #818cf8, #6366f1)', borderRadius: '6px 6px 0 0', minHeight: w.matches ? 4 : 0, transition: 'height 0.6s ease' }} title={`${w.matches} matches`} />
-                    <div style={{ width: 32, height: bookH, background: 'linear-gradient(180deg, #38bdf8, #0ea5e9)', borderRadius: '0 0 6px 6px', minHeight: w.bookings ? 4 : 0, transition: 'height 0.6s ease' }} title={`${w.bookings} bookings`} />
+                    <div style={{ width: 32, height: matchH, background: 'linear-gradient(180deg, #818cf8, #6366f1)', borderRadius: '6px 6px 0 0', minHeight: w.matches ? 4 : 0, transition: 'height 0.6s ease' }} title={`${w.matches} matcher`} />
+                    <div style={{ width: 32, height: bookH, background: 'linear-gradient(180deg, #38bdf8, #0ea5e9)', borderRadius: '0 0 6px 6px', minHeight: w.bookings ? 4 : 0, transition: 'height 0.6s ease' }} title={`${w.bookings} bokningar`} />
                   </div>
                   <span style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>{w.week}</span>
                 </div>
@@ -85,14 +85,14 @@ export default function AnalyticsPage() {
             })}
           </div>
           <div style={{ display: 'flex', gap: 20, marginTop: 16, fontSize: 12, color: 'var(--text-muted)' }}>
-            <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#818cf8', borderRadius: 2, marginRight: 6 }} />Matches</span>
-            <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#38bdf8', borderRadius: 2, marginRight: 6 }} />Bookings</span>
+            <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#818cf8', borderRadius: 2, marginRight: 6 }} />Matcher</span>
+            <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#38bdf8', borderRadius: 2, marginRight: 6 }} />Bokningar</span>
           </div>
         </div>
 
         {/* Sport Breakdown — Donut */}
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 24, boxShadow: 'var(--shadow-sm)' }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Sport Breakdown</h3>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Fördelning per sport</h3>
           <DonutChart data={sportEntries} total={totalSportMatches} colors={sportColors} />
           <div style={{ marginTop: 16 }}>
             {sportEntries.map(([sport, count]) => (
@@ -111,7 +111,7 @@ export default function AnalyticsPage() {
       {/* Elo Rankings — Horizontal Bar Charts */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 24, boxShadow: 'var(--shadow-sm)' }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Padel Elo Rankings</h3>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Padel Elo-ranking</h3>
           {padelRank.map((p, i) => (
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <span style={{ width: 20, fontSize: 14, fontWeight: 700, color: i < 3 ? 'var(--yellow)' : 'var(--text-dim)' }}>{i + 1}</span>
@@ -129,7 +129,7 @@ export default function AnalyticsPage() {
         </div>
 
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 24, boxShadow: 'var(--shadow-sm)' }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Tennis Elo Rankings</h3>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Tennis Elo-ranking</h3>
           {tennisRank.map((p, i) => (
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <span style={{ width: 20, fontSize: 14, fontWeight: 700, color: i < 3 ? 'var(--yellow)' : 'var(--text-dim)' }}>{i + 1}</span>

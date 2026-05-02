@@ -5,16 +5,14 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
-import { requireAdmin } from '../../../../lib/auth/guards';
+import { getRequestUser, getUserRole, getManagedClubIds, requireAdmin, requireClubAccess } from '../../../../lib/auth/guards';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
-
   const supabase = createSupabaseAdminClient();
 
-  // Fetch form
   const { data: form, error } = await supabase
     .from('registration_forms')
     .select('*')
@@ -25,42 +23,67 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: false, error: 'Form not found' }, { status: 404 });
   }
 
-  // Fetch submissions enriched with user name/email
+  const user = await getRequestUser();
+  const role = user ? await getUserRole(user.id) : null;
+  const isAdmin = role === 'admin' || role === 'superadmin';
+
+  if (!isAdmin) {
+    if (form.status !== 'open') {
+      return NextResponse.json({ success: false, error: 'Form is not open' }, { status: 403 });
+    }
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: form.id,
+        club_id: form.club_id,
+        title: form.title,
+        description: form.description,
+        sport_type: form.sport_type,
+        category: form.category,
+        season: form.season,
+        fields: form.fields ?? [],
+        status: form.status,
+        max_submissions: form.max_submissions,
+      },
+    });
+  }
+
+  if (role === 'admin' && user) {
+    const managedClubIds = await getManagedClubIds(user.id);
+    if (!managedClubIds.includes(form.club_id)) {
+      return NextResponse.json({ success: false, error: 'You do not have access to this venue' }, { status: 403 });
+    }
+  }
+
   const { data: submissions } = await supabase
     .from('form_submissions')
     .select('*')
     .eq('form_id', id)
     .order('submitted_at', { ascending: true });
 
-  const userIds = (submissions ?? []).map(s => s.user_id);
+  const userIds = (submissions ?? []).map((submission) => submission.user_id);
   const { data: users } = userIds.length > 0
     ? await supabase.from('users').select('id, full_name, email').in('id', userIds)
     : { data: [] };
 
-  const userMap = new Map((users ?? []).map(u => [u.id, u]));
-
-  const enrichedSubs = (submissions ?? []).map(s => {
-    const user = userMap.get(s.user_id);
+  const userMap = new Map((users ?? []).map((userRow) => [userRow.id, userRow]));
+  const enrichedSubs = (submissions ?? []).map((submission) => {
+    const submissionUser = userMap.get(submission.user_id);
     return {
-      ...s,
-      user_name: user?.full_name ?? 'Unknown',
-      user_email: user?.email ?? '',
+      ...submission,
+      user_name: submissionUser?.full_name ?? 'Unknown',
+      user_email: submissionUser?.email ?? '',
     };
   });
 
-  // Get target group name
   let targetGroupName: string | null = null;
   if (form.target_group_id) {
-    const { data: group } = await supabase
-      .from('groups')
-      .select('name')
-      .eq('id', form.target_group_id)
-      .single();
+    const { data: group } = await supabase.from('groups').select('name').eq('id', form.target_group_id).single();
     targetGroupName = group?.name ?? null;
   }
 
   const submissionCount = enrichedSubs.length;
-  const assignedCount = enrichedSubs.filter(s => s.assigned_to_group).length;
+  const assignedCount = enrichedSubs.filter((submission) => submission.assigned_to_group).length;
 
   return NextResponse.json({
     success: true,
@@ -81,8 +104,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params;
   const body = await request.json();
+  const supabase = createSupabaseAdminClient();
 
-  // camelCase -> snake_case mapping
+  const { data: existing } = await supabase.from('registration_forms').select('club_id').eq('id', id).single();
+  if (!existing) {
+    return NextResponse.json({ success: false, error: 'Form not found' }, { status: 404 });
+  }
+
+  const access = await requireClubAccess(existing.club_id);
+  if (!access.ok) return access.response;
+
   const updateData: Record<string, unknown> = {};
   if (body.title !== undefined) updateData.title = body.title;
   if (body.description !== undefined) updateData.description = body.description;
@@ -93,10 +124,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (body.sportType !== undefined) updateData.sport_type = body.sportType;
   if (body.targetGroupId !== undefined) updateData.target_group_id = body.targetGroupId;
   if (body.maxSubmissions !== undefined) updateData.max_submissions = body.maxSubmissions;
-
   updateData.updated_at = new Date().toISOString();
-
-  const supabase = createSupabaseAdminClient();
 
   const { data: form, error } = await supabase
     .from('registration_forms')
@@ -118,8 +146,14 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params;
   const supabase = createSupabaseAdminClient();
+  const { data: existing } = await supabase.from('registration_forms').select('club_id').eq('id', id).single();
+  if (!existing) {
+    return NextResponse.json({ success: false, error: 'Form not found' }, { status: 404 });
+  }
 
-  // Soft-delete: set status to closed
+  const access = await requireClubAccess(existing.club_id);
+  if (!access.ok) return access.response;
+
   const { error } = await supabase
     .from('registration_forms')
     .update({ status: 'closed', updated_at: new Date().toISOString() })

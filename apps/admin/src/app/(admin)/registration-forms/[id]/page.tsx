@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -104,7 +104,7 @@ export default function FormDetailPage() {
     await reload();
   };
 
-  if (loading || !form) return <div className="loading">Loading...</div>;
+  if (loading || !form) return <div className="loading">Laddar...</div>;
 
   const subs = form.submissions || [];
   const unassigned = subs.filter((s: any) => !s.assigned_to_group);
@@ -301,3 +301,4 @@ const inp: React.CSSProperties = { padding: '9px 12px', background: 'var(--bg-in
 const btnS: React.CSSProperties = { padding: '7px 12px', fontSize: 11 };
 const miniLbl: React.CSSProperties = { display: 'block', fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 3, textTransform: 'uppercase' as const, letterSpacing: '0.5px' };
 const arrowBtn: React.CSSProperties = { width: 24, height: 20, border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg-body)', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' };
+

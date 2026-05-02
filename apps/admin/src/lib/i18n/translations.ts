@@ -1,7 +1,7 @@
 export const translations = {
   sv: {
     // Navigation
-    'nav.dashboard': 'Dashboard',
+    'nav.dashboard': 'Översikt',
     'nav.schedule': 'Schema',
     'nav.bookings': 'Bokningar',
     'nav.members': 'Medlemmar',
@@ -11,7 +11,7 @@ export const translations = {
     'nav.memberships': 'Medlemskap',
     'nav.settings': 'Inställningar',
     'nav.revenue': 'Omsättning',
-    'nav.clubs': 'Alla Klubbar',
+    'nav.clubs': 'Alla klubbar',
     // Common
     'common.save': 'Spara',
     'common.cancel': 'Avbryt',
@@ -49,7 +49,7 @@ export const translations = {
     'members.suspend': 'Pausa',
     'members.reactivate': 'Återaktivera',
     // Dashboard
-    'dashboard.title': 'Dashboard',
+    'dashboard.title': 'Översikt',
     'dashboard.todaysBookings': 'Dagens bokningar',
     'dashboard.pendingMembers': 'Väntande medlemmar',
     'dashboard.revenue': 'Intäkter',

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 const API = '/api';
 
@@ -39,7 +39,7 @@ export default function PriceCalendarPage() {
         </div>
       </div>
 
-      {loading ? <div className="loading">Loading...</div> : data && (
+      {loading ? <div className="loading">Laddar...</div> : data && (
         <div style={{ borderRadius: 14, border: '1px solid var(--border)', background: 'var(--bg-card)', boxShadow: 'var(--shadow-sm)', overflow: 'auto' }}>
           <table style={{ fontSize: 12.5 }}>
             <thead><tr><th style={{ width: 70 }}>Tid</th>{data.days.map((d: any) => <th key={d.date} style={{ textAlign: 'center', minWidth: 100 }}>{d.dayName} {d.date.substring(5)}</th>)}</tr></thead>
@@ -74,3 +74,4 @@ export default function PriceCalendarPage() {
 }
 function Fld({ label, children }: { label: string; children: React.ReactNode }) { return <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase' as const, letterSpacing: '0.7px' }}>{label}</label>{children}</div>; }
 const inp: React.CSSProperties = { padding: '9px 12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 13, width: '100%', fontFamily: 'inherit' };
+

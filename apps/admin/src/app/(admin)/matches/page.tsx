@@ -61,7 +61,7 @@ export default function MatchesPage() {
     }).then(r => r.json());
 
     if (res.success) {
-      setSuccess('Match recorded! Elo ratings updated.');
+      setSuccess('Match registrerad! Elo-rating uppdaterad.');
       setShowForm(false);
       setScore1(''); setScore2('');
       // Refresh
@@ -76,14 +76,14 @@ export default function MatchesPage() {
 
   const availablePlayers = (exclude: string[]) => players.filter(p => !exclude.includes(p.id) || exclude.length === 0);
 
-  if (loading) return <div className="loading">Loading matches...</div>;
+  if (loading) return <div className="loading">Laddar matcher...</div>;
 
   return (
     <div>
       <div className="page-header">
-        <h1>Matches</h1>
+        <h1>Matcher</h1>
         <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-          {showForm ? '✕ Cancel' : '+ Log Match'}
+          {showForm ? '✕ Avbryt' : '+ Registrera match'}
         </button>
       </div>
 
@@ -91,7 +91,7 @@ export default function MatchesPage() {
 
       {showForm && (
         <div className="form-card">
-          <h2 style={{ fontSize: 18, marginBottom: 20 }}>Record a Match</h2>
+          <h2 style={{ fontSize: 18, marginBottom: 20 }}>Registrera en match</h2>
           <form onSubmit={handleSubmit}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
               <div>
@@ -106,8 +106,8 @@ export default function MatchesPage() {
               <div>
                 <label style={labelStyle}>Format</label>
                 <select value={format} onChange={e => setFormat(e.target.value as any)} style={inputStyle}>
-                  <option value="doubles">Doubles (2v2)</option>
-                  <option value="singles">Singles (1v1)</option>
+                  <option value="doubles">Dubbel (2 mot 2)</option>
+                  <option value="singles">Singel (1 mot 1)</option>
                 </select>
               </div>
             </div>
@@ -115,20 +115,20 @@ export default function MatchesPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 20, marginBottom: 20 }}>
               {/* Team 1 */}
               <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 14, padding: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#059669', marginBottom: 12, letterSpacing: '1px' }}>TEAM 1</div>
-                <label style={labelStyle}>Player 1</label>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#059669', marginBottom: 12, letterSpacing: '1px' }}>LAG 1</div>
+                <label style={labelStyle}>Spelare 1</label>
                 <select value={t1p1} onChange={e => setT1p1(e.target.value)} style={inputStyle} required>
-                  <option value="">Select player...</option>
+                  <option value="">Välj spelare...</option>
                   {availablePlayers([t1p2, t2p1, t2p2]).map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
                 </select>
                 {format === 'doubles' && <>
-                  <label style={{ ...labelStyle, marginTop: 12 }}>Player 2</label>
+                  <label style={{ ...labelStyle, marginTop: 12 }}>Spelare 2</label>
                   <select value={t1p2} onChange={e => setT1p2(e.target.value)} style={inputStyle} required>
-                    <option value="">Select player...</option>
+                    <option value="">Välj spelare...</option>
                     {availablePlayers([t1p1, t2p1, t2p2]).map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
                   </select>
                 </>}
-                <label style={{ ...labelStyle, marginTop: 12 }}>Score</label>
+                <label style={{ ...labelStyle, marginTop: 12 }}>Poäng</label>
                 <input type="number" min="0" max="99" value={score1} onChange={e => setScore1(e.target.value)} style={{ ...inputStyle, fontSize: 28, textAlign: 'center' as any, fontWeight: 700 }} placeholder="0" required />
               </div>
 
@@ -137,26 +137,26 @@ export default function MatchesPage() {
 
               {/* Team 2 */}
               <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 14, padding: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', marginBottom: 12, letterSpacing: '1px' }}>TEAM 2</div>
-                <label style={labelStyle}>Player 1</label>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', marginBottom: 12, letterSpacing: '1px' }}>LAG 2</div>
+                <label style={labelStyle}>Spelare 1</label>
                 <select value={t2p1} onChange={e => setT2p1(e.target.value)} style={inputStyle} required>
-                  <option value="">Select player...</option>
+                  <option value="">Välj spelare...</option>
                   {availablePlayers([t1p1, t1p2, t2p2]).map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
                 </select>
                 {format === 'doubles' && <>
-                  <label style={{ ...labelStyle, marginTop: 12 }}>Player 2</label>
+                  <label style={{ ...labelStyle, marginTop: 12 }}>Spelare 2</label>
                   <select value={t2p2} onChange={e => setT2p2(e.target.value)} style={inputStyle} required>
-                    <option value="">Select player...</option>
+                    <option value="">Välj spelare...</option>
                     {availablePlayers([t1p1, t1p2, t2p1]).map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
                   </select>
                 </>}
-                <label style={{ ...labelStyle, marginTop: 12 }}>Score</label>
+                <label style={{ ...labelStyle, marginTop: 12 }}>Poäng</label>
                 <input type="number" min="0" max="99" value={score2} onChange={e => setScore2(e.target.value)} style={{ ...inputStyle, fontSize: 28, textAlign: 'center' as any, fontWeight: 700 }} placeholder="0" required />
               </div>
             </div>
 
             <button type="submit" className="btn btn-primary" disabled={submitting} style={{ width: '100%', justifyContent: 'center', padding: '12px 0', fontSize: 16 }}>
-              {submitting ? 'Saving...' : 'Record Match & Update Elo'}
+              {submitting ? 'Sparar...' : 'Registrera match och uppdatera Elo'}
             </button>
           </form>
         </div>
@@ -166,7 +166,7 @@ export default function MatchesPage() {
       <div className="table-wrap">
         <table>
           <thead>
-            <tr><th>Date</th><th>Sport</th><th>Team 1</th><th>Score</th><th>Team 2</th><th>Result</th></tr>
+            <tr><th>Datum</th><th>Sport</th><th>Lag 1</th><th>Poäng</th><th>Lag 2</th><th>Resultat</th></tr>
           </thead>
           <tbody>
             {matches.map(m => {
@@ -185,8 +185,8 @@ export default function MatchesPage() {
                   <td style={{ fontWeight: m.winner_team === 2 ? 700 : 400, color: m.winner_team === 2 ? 'var(--green)' : 'var(--text)' }}>{t2Names}</td>
                   <td>
                     {m.winner_team === null
-                      ? <span className="badge badge-yellow">Draw</span>
-                      : <span className="badge badge-green">Team {m.winner_team} wins</span>
+                      ? <span className="badge badge-yellow">Oavgjort</span>
+                      : <span className="badge badge-green">Lag {m.winner_team} vann</span>
                     }
                   </td>
                 </tr>
@@ -201,3 +201,4 @@ export default function MatchesPage() {
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase' as any, letterSpacing: '0.7px' };
 const inputStyle: React.CSSProperties = { width: '100%', padding: '9px 12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 14, transition: 'border-color 0.2s', outline: 'none' };
+

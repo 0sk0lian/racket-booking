@@ -34,11 +34,11 @@ export interface FilterBarProps {
 }
 
 const TYPE_LABELS: Record<NonNullable<FilterBarProps['bookingType']>, string> = {
-  all: 'All types',
-  regular: 'Booking',
-  training: 'Training',
-  contract: 'Contract',
-  event: 'Event',
+  all: 'Alla typer',
+  regular: 'Bokning',
+  training: 'Träning',
+  contract: 'Avtal',
+  event: 'Evenemang',
 };
 
 export function FilterBar({
@@ -52,7 +52,7 @@ export function FilterBar({
   return (
     <div style={barStyle}>
       {clubs && onClubChange && (
-        <Field label="Club">
+        <Field label="Klubb">
           <select value={selectedClubId} onChange={e => onClubChange(e.target.value)} style={inpStyle}>
             {clubs.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
@@ -60,34 +60,34 @@ export function FilterBar({
       )}
 
       {courts && onCourtChange && (
-        <Field label="Court">
+        <Field label="Bana">
           <select value={selectedCourtId ?? 'all'} onChange={e => onCourtChange(e.target.value as any)} style={inpStyle}>
-            <option value="all">All courts</option>
+            <option value="all">Alla banor</option>
             {courts.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
         </Field>
       )}
 
       {trainers && onTrainerChange && (
-        <Field label="Trainer">
+        <Field label="Tränare">
           <select value={selectedTrainerId ?? 'all'} onChange={e => onTrainerChange(e.target.value as any)} style={inpStyle}>
-            <option value="all">All trainers</option>
+            <option value="all">Alla tränare</option>
             {trainers.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
           </select>
         </Field>
       )}
 
       {players && onPlayerChange && (
-        <Field label="Player">
+        <Field label="Spelare">
           <select value={selectedPlayerId ?? 'all'} onChange={e => onPlayerChange(e.target.value as any)} style={inpStyle}>
-            <option value="all">All players</option>
+            <option value="all">Alla spelare</option>
             {players.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
           </select>
         </Field>
       )}
 
       {bookingType !== undefined && onBookingTypeChange && (
-        <Field label="Type">
+        <Field label="Typ">
           <select value={bookingType} onChange={e => onBookingTypeChange(e.target.value as any)} style={inpStyle}>
             {(['all', 'regular', 'training', 'contract', 'event'] as const).map(t => (
               <option key={t} value={t}>{TYPE_LABELS[t]}</option>

@@ -5,32 +5,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../../../lib/supabase/server';
 import crypto from 'crypto';
+import { requireClubAccess } from '../../../../../lib/auth/guards';
+import { onBookingCreated } from '../../../../../lib/cascades';
+import { buildRecurrencePreview } from '../../../../../lib/recurrence';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = createSupabaseAdminClient();
 
-  // Re-use the preview logic by calling the preview endpoint internally
   const body = await request.json().catch(() => ({}));
   const from = request.nextUrl.searchParams.get('from') ?? body.from;
   const to = request.nextUrl.searchParams.get('to') ?? body.to;
 
   const { data: rule } = await supabase.from('recurrence_rules').select('*').eq('id', id).single();
   if (!rule) return NextResponse.json({ success: false, error: 'Rule not found' }, { status: 404 });
+  const access = await requireClubAccess(rule.club_id);
+  if (!access.ok) return access.response;
 
-  // Fetch preview internally
-  const previewUrl = new URL(`/api/recurrence-rules/${id}/preview`, request.nextUrl.origin);
-  if (from) previewUrl.searchParams.set('from', from);
-  if (to) previewUrl.searchParams.set('to', to);
-  const previewRes = await fetch(previewUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-  const preview = await previewRes.json();
-  if (!preview.success) return NextResponse.json(preview, { status: 400 });
+  const preview = await buildRecurrencePreview(rule, { from, to }, supabase);
 
   const batchId = crypto.randomUUID();
   const { data: court } = await supabase.from('courts').select('base_hourly_rate').eq('id', rule.court_id).single();
   const createdIds: string[] = [];
 
-  for (const inst of preview.data.instances) {
+  for (const inst of preview.instances) {
     const durationHours = inst.end_hour - inst.start_hour;
     let totalPrice = 0;
     if (rule.booking_type !== 'event') {
@@ -55,7 +53,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       generation_batch_id: batchId,
     }).select('id').single();
 
-    if (booking) createdIds.push(booking.id);
+    if (error) continue;
+    if (booking) {
+      createdIds.push(booking.id);
+      await onBookingCreated({
+        id: booking.id,
+        court_id: inst.court_id,
+        player_ids: rule.player_ids ?? [],
+        trainer_id: rule.trainer_id ?? null,
+        booker_id: rule.created_by ?? access.user.id,
+        booking_type: rule.booking_type,
+      });
+    }
   }
 
   return NextResponse.json({
@@ -65,9 +74,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       batch_id: batchId,
       created: createdIds.length,
       created_booking_ids: createdIds,
-      conflicts: preview.data.conflicts,
-      blackouts: preview.data.blackouts,
-      skipped_dates: preview.data.skipped_dates,
+      conflicts: preview.conflicts,
+      blackouts: preview.blackouts,
+      skipped_dates: preview.skipped_dates,
     },
   });
 }

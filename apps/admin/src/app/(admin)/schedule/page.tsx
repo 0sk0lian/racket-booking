@@ -55,7 +55,7 @@ interface Group {
 }
 
 type View = 'day' | 'week' | 'templates';
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_LABELS = ['Sön', 'Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör'];
 
 // ─── Date helpers (local-date math) ────────────────────────────────
 
@@ -84,7 +84,7 @@ function mondayOf(s: string): string {
 // inner body keeps the URL-driven initial view while satisfying the build.
 export default function SchedulePage() {
   return (
-    <Suspense fallback={<div className="loading">Loading…</div>}>
+    <Suspense fallback={<div className="loading">Laddar…</div>}>
       <SchedulePageInner />
     </Suspense>
   );
@@ -293,7 +293,7 @@ function SchedulePageInner() {
           }),
         });
       }
-      flash(`Created ${slots.length} template(s)`);
+      flash(`Skapade ${slots.length} mall${slots.length === 1 ? '' : 'ar'}`);
       await loadTemplates();
     } else {
       const body: any = {
@@ -318,7 +318,7 @@ function SchedulePageInner() {
       const r = await fetch(`${API}/admin/bookings/bulk`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       }).then(r => r.json());
-      flash(`Created ${r.data?.created ?? 0} booking(s)${r.data?.failed ? ` — ${r.data.failed} conflicts` : ''}`);
+      flash(`Skapade ${r.data?.created ?? 0} bokning${(r.data?.created ?? 0) === 1 ? '' : 'ar'}${r.data?.failed ? ` — ${r.data.failed} konflikt(er)` : ''}`);
       view === 'day' ? await loadDay() : await loadWeek();
     }
 
@@ -343,15 +343,15 @@ function SchedulePageInner() {
     await fetch(`${API}/admin/bookings/${editing.id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
-    flash('Booking updated'); setEditing(null); setSaving(false);
+    flash('Bokning uppdaterad'); setEditing(null); setSaving(false);
     view === 'day' ? await loadDay() : await loadWeek();
   };
 
   const handleEditDelete = async () => {
-    if (!editing || !confirm('Cancel this booking?')) return;
+    if (!editing || !confirm('Avboka den här bokningen?')) return;
     setSaving(true);
     await fetch(`${API}/admin/bookings/${editing.id}`, { method: 'DELETE' });
-    flash('Booking cancelled'); setEditing(null); setSaving(false);
+    flash('Bokning avbokad'); setEditing(null); setSaving(false);
     view === 'day' ? await loadDay() : await loadWeek();
   };
 
@@ -369,7 +369,7 @@ function SchedulePageInner() {
   return (
     <div>
       <div className="page-header">
-        <h1>Schedule</h1>
+        <h1>Schema</h1>
         <ViewTabs view={view} onChange={(v) => {
           setView(v);
           const q = new URLSearchParams(params.toString());
@@ -389,12 +389,12 @@ function SchedulePageInner() {
         right={
           view === 'day' ? <DayNav date={date} onChange={setDate} /> :
           view === 'week' ? <WeekNav weekStart={weekStart} onChange={setWeekStart} /> :
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'flex-end' }}>{templates.length} template(s)</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'flex-end' }}>{templates.length} mall{templates.length === 1 ? '' : 'ar'}</div>
         }
       />
 
-      {loading ? <div className="loading">Loading…</div> : (
-        gridCourts.length === 0 ? <div className="empty-state">No courts.</div> : (
+      {loading ? <div className="loading">Laddar…</div> : (
+        gridCourts.length === 0 ? <div className="empty-state">Inga banor.</div> : (
           <>
             <ScheduleGrid
               courts={gridCourts}
@@ -410,13 +410,13 @@ function SchedulePageInner() {
               <div style={{ marginTop: 18, padding: 14, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 13 }}>
-                    <strong>{selectionToSlots(selected).length}</strong> slot(s) selected
-                    {view === 'templates' && ' — will create weekday template(s)'}
+                    <strong>{selectionToSlots(selected).length}</strong> tidsluck{selectionToSlots(selected).length === 1 ? 'a vald' : 'or valda'}
+                    {view === 'templates' && ' — skapar veckomallar'}
                   </span>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn btn-outline" onClick={() => setSelected(new Set())}>Clear</button>
+                    <button className="btn btn-outline" onClick={() => setSelected(new Set())}>Rensa</button>
                     <button className="btn btn-primary" onClick={openCreate}>
-                      Create {view === 'templates' ? 'template' : 'booking'}…
+                      Skapa {view === 'templates' ? 'mall' : 'bokning'}…
                     </button>
                   </div>
                 </div>
@@ -449,7 +449,7 @@ function SchedulePageInner() {
           initialTo={addDays(mondayOf(toDateStr(new Date())), 7 * 8 - 1)}
           onClose={() => setApplyPreview(null)}
           onApplied={({ created }) => {
-            flash(`Applied — ${created} booking(s) created`);
+            flash(`Klart — ${created} bokning${created === 1 ? '' : 'ar'} skapade`);
             loadTemplates();
           }}
         />
@@ -494,9 +494,9 @@ function SchedulePageInner() {
 
 function ViewTabs({ view, onChange }: { view: View; onChange: (v: View) => void }) {
   const tabs: { key: View; label: string }[] = [
-    { key: 'day', label: 'Day' },
-    { key: 'week', label: 'Week' },
-    { key: 'templates', label: 'Templates' },
+    { key: 'day', label: 'Dag' },
+    { key: 'week', label: 'Vecka' },
+    { key: 'templates', label: 'Mallar' },
   ];
   return (
     <div style={{ display: 'flex', gap: 4, background: 'var(--bg-body)', padding: 4, borderRadius: 10 }}>
@@ -527,7 +527,7 @@ function DayNav({ date, onChange }: { date: string; onChange: (d: string) => voi
     <div style={{ display: 'flex', gap: 6 }}>
       <input type="date" value={date} onChange={e => onChange(e.target.value)} style={{ padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13, fontFamily: 'inherit' }} />
       <button className="btn btn-outline" style={navBtn} onClick={() => onChange(addDays(date, -1))}>&larr;</button>
-      <button className="btn btn-outline" style={navBtn} onClick={() => onChange(toDateStr(new Date()))}>Today</button>
+      <button className="btn btn-outline" style={navBtn} onClick={() => onChange(toDateStr(new Date()))}>Idag</button>
       <button className="btn btn-outline" style={navBtn} onClick={() => onChange(addDays(date, 1))}>&rarr;</button>
     </div>
   );
@@ -539,7 +539,7 @@ function WeekNav({ weekStart, onChange }: { weekStart: string; onChange: (d: str
     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
       <span style={{ fontSize: 12, color: 'var(--text-muted)', marginRight: 8 }}>{weekStart} — {weekEnd}</span>
       <button className="btn btn-outline" style={navBtn} onClick={() => onChange(addDays(weekStart, -7))}>&larr;</button>
-      <button className="btn btn-outline" style={navBtn} onClick={() => onChange(mondayOf(toDateStr(new Date())))}>This week</button>
+      <button className="btn btn-outline" style={navBtn} onClick={() => onChange(mondayOf(toDateStr(new Date())))}>Denna vecka</button>
       <button className="btn btn-outline" style={navBtn} onClick={() => onChange(addDays(weekStart, 7))}>&rarr;</button>
     </div>
   );
@@ -559,11 +559,11 @@ function bookingToItem(b: Booking, courtId: string, dayKey: string): GridItem<Bo
     : b.bookingType === 'training' ? 'training'
     : b.bookingType === 'contract' ? 'contract'
     : 'event';
-  const title = b.bookingType === 'event' ? (b.eventName ?? 'Event') : b.bookerName;
+  const title = b.bookingType === 'event' ? (b.eventName ?? 'Evenemang') : b.bookerName;
   let subtitle = '';
   if (b.bookingType === 'training' && b.trainerName) subtitle = b.trainerName;
   else if (b.bookingType === 'event') subtitle = `${b.attendeeCount}/${b.eventMaxParticipants ?? '?'}`;
-  else if (b.bookingType === 'contract') subtitle = 'Weekly';
+  else if (b.bookingType === 'contract') subtitle = 'Veckovis';
   const caption = b.attendanceTotal > 0 ? `${b.attendancePresent}/${b.attendanceTotal}` : undefined;
   return {
     id: b.id, court_id: courtId, day_key: dayKey,
@@ -582,7 +582,7 @@ function templateToItem(t: TrainingSession): GridItem<TrainingSession> {
     variant: 'template',
     title: t.title,
     subtitle: t.trainer_name,
-    caption: `${t.player_ids.length} players${t.applied_dates.length ? ` · applied ${t.applied_dates.length}×` : ''}`,
+    caption: `${t.player_ids.length} spelare${t.applied_dates.length ? ` · tillämpad ${t.applied_dates.length}×` : ''}`,
     payload: t,
   };
 }

@@ -7,14 +7,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../lib/supabase/server';
 import { requireAdmin, requireClubAccess } from '../../../lib/auth/guards';
+import { resolveClubId } from '../../../lib/clubs';
 
 export async function GET(request: NextRequest) {
-  const clubId = request.nextUrl.searchParams.get('clubId');
-  if (!clubId) {
+  const clubIdentifier = request.nextUrl.searchParams.get('clubId');
+  if (!clubIdentifier) {
     return NextResponse.json({ success: false, error: 'clubId required' }, { status: 400 });
   }
 
   const supabase = createSupabaseAdminClient();
+  const clubId = await resolveClubId(clubIdentifier, supabase);
+  if (!clubId) {
+    return NextResponse.json({ success: false, error: 'Club not found' }, { status: 404 });
+  }
   const { data, error } = await supabase
     .from('membership_types')
     .select('*')

@@ -52,10 +52,10 @@ interface ColumnDef {
 }
 
 const COLUMNS: ColumnDef[] = [
-  { key: 'going',    label: 'Going',    hint: 'Confirmed',   color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' },
-  { key: 'invited',  label: 'Invited',  hint: 'No reply',    color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
-  { key: 'waitlist', label: 'Waitlist', hint: 'Spot opens?', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
-  { key: 'declined', label: 'Declined', hint: 'Said no',     color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+  { key: 'going',    label: 'Kommer', hint: 'Bekräftat', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' },
+  { key: 'invited',  label: 'Inbjudna', hint: 'Inget svar', color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
+  { key: 'waitlist', label: 'Reservlista', hint: 'Väntar på plats', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+  { key: 'declined', label: 'Tackat nej', hint: 'Avböjt', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
 ];
 
 const MOVABLE: RsvpStatus[] = ['going', 'invited', 'waitlist', 'declined'];
@@ -71,7 +71,7 @@ export function AttendanceBoard({ bookingId, candidates = [], showCheckIn = true
     setLoading(true); setError('');
     try {
       const r = await fetch(`${API}/bookings/${bookingId}/attendance`).then(r => r.json());
-      if (!r.success) throw new Error(r.error ?? 'Failed to load attendance');
+      if (!r.success) throw new Error(r.error ?? 'Kunde inte ladda närvaro');
       setRows(r.data ?? []);
     } catch (e: any) {
       setError(e.message);
@@ -112,8 +112,8 @@ export function AttendanceBoard({ bookingId, candidates = [], showCheckIn = true
 
   const goingOrCheckedIn = [...byStatus.going, ...byStatus.present, ...byStatus.no_show];
 
-  if (loading) return <div className="loading" style={{ padding: 12 }}>Loading attendance…</div>;
-  if (error) return <div style={errBox}>Error: {error} <button onClick={reload} className="btn btn-outline" style={{ marginLeft: 8 }}>Retry</button></div>;
+  if (loading) return <div className="loading" style={{ padding: 12 }}>Laddar närvaro…</div>;
+  if (error) return <div style={errBox}>Fel: {error} <button onClick={reload} className="btn btn-outline" style={{ marginLeft: 8 }}>Försök igen</button></div>;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -139,7 +139,7 @@ export function AttendanceBoard({ bookingId, candidates = [], showCheckIn = true
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {colRows.length === 0 && (
-                  <div style={{ fontSize: 11, color: 'var(--text-dim)', fontStyle: 'italic' }}>Empty</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', fontStyle: 'italic' }}>Tomt</div>
                 )}
                 {colRows
                   .sort((a, b) => (a.waitlist_position ?? 0) - (b.waitlist_position ?? 0) || a.full_name.localeCompare(b.full_name))
@@ -164,7 +164,7 @@ export function AttendanceBoard({ bookingId, candidates = [], showCheckIn = true
       {showCheckIn && goingOrCheckedIn.length > 0 && (
         <div style={{ border: '1px solid var(--border)', background: 'var(--bg-card)', borderRadius: 12, padding: 12 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-            Check-in
+            Incheckning
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {goingOrCheckedIn.map(r => (
@@ -186,7 +186,7 @@ export function AttendanceBoard({ bookingId, candidates = [], showCheckIn = true
                     fontFamily: 'inherit',
                   }}
                 >
-                  Present
+                  Närvarande
                 </button>
                 <button
                   onClick={() => setStatus(r.user_id, 'no_show')}
@@ -199,7 +199,7 @@ export function AttendanceBoard({ bookingId, candidates = [], showCheckIn = true
                     fontFamily: 'inherit',
                   }}
                 >
-                  No-show
+                  Uteblev
                 </button>
               </div>
             ))}
@@ -211,7 +211,7 @@ export function AttendanceBoard({ bookingId, candidates = [], showCheckIn = true
       {toAdd.length > 0 && (
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
-            Add from roster
+            Lägg till från grupp
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {toAdd.map(c => (
@@ -267,7 +267,7 @@ function PlayerChip({ row, column, onMove, menuOpen, onToggleMenu, disabled }: {
             border: 'none', background: 'transparent', color: 'var(--text-muted)',
             borderRadius: 4, fontFamily: 'inherit',
           }}
-          title="Move…"
+          title="Flytta…"
         >
           ⋯
         </button>
@@ -291,7 +291,7 @@ function PlayerChip({ row, column, onMove, menuOpen, onToggleMenu, disabled }: {
                   cursor: 'pointer', borderRadius: 6, color: def.color, fontFamily: 'inherit',
                 }}
               >
-                Move to {def.label}
+                Flytta till {def.label}
               </button>
             );
           })}

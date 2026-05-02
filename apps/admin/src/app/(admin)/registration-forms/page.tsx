@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 const API = '/api';
@@ -103,7 +103,7 @@ export default function RegistrationFormsPage() {
         </div>
       )}
 
-      {loading ? <div className="loading">Loading...</div> : (
+      {loading ? <div className="loading">Laddar...</div> : (
         <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))' }}>
           {filtered.map(f => {
             const catInfo = CATS.find(c => c.v === f.category);
@@ -150,3 +150,4 @@ export default function RegistrationFormsPage() {
 function Fld({ label, children }: { label: string; children: React.ReactNode }) { return <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase' as const, letterSpacing: '0.7px' }}>{label}</label>{children}</div>; }
 const inp: React.CSSProperties = { padding: '9px 12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 13, width: '100%', fontFamily: 'inherit' };
 const btnS: React.CSSProperties = { padding: '7px 12px', fontSize: 11 };
+

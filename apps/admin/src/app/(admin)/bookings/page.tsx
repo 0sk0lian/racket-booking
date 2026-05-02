@@ -93,7 +93,7 @@ export default function BookingsPage() {
         <Fld label="Klubb"><select value={clubId} onChange={e => setClubId(e.target.value)} style={inp}>{clubs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Fld>
         <Fld label="Datum"><input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp} /></Fld>
         <Fld label="Status"><select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={inp}><option value="all">Alla</option><option value="confirmed">Bekräftade</option><option value="pending">Väntande</option><option value="cancelled">Avbokade</option></select></Fld>
-        <Fld label="Typ"><select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={inp}><option value="all">Alla</option><option value="regular">Bokning</option><option value="training">Träning</option><option value="contract">Kontrakt</option><option value="event">Event</option></select></Fld>
+        <Fld label="Typ"><select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={inp}><option value="all">Alla</option><option value="regular">Bokning</option><option value="training">Träning</option><option value="contract">Kontrakt</option><option value="event">Evenemang</option></select></Fld>
         <div style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--text-muted)' }}>{filtered.length} bokningar · {totalRev.toFixed(0)} SEK</div>
       </div>
 
@@ -130,12 +130,14 @@ export default function BookingsPage() {
 function Pill({ type }: { type: string }) {
   const c: Record<string, { bg: string; color: string }> = { regular: { bg: '#ecfdf5', color: '#059669' }, training: { bg: '#eef2ff', color: '#4f46e5' }, contract: { bg: '#fef3c7', color: '#b45309' }, event: { bg: '#fce7f3', color: '#be185d' } };
   const s = c[type] ?? c.regular;
-  return <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 700, background: s.bg, color: s.color, textTransform: 'capitalize' }}>{type}</span>;
+  const labels: Record<string, string> = { regular: 'Bokning', training: 'Träning', contract: 'Kontrakt', event: 'Evenemang' };
+  return <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 700, background: s.bg, color: s.color }}>{labels[type] ?? type}</span>;
 }
 function StatusPill({ status }: { status: string }) {
   const c: Record<string, { bg: string; color: string }> = { confirmed: { bg: '#ecfdf5', color: '#059669' }, pending: { bg: '#fef3c7', color: '#b45309' }, cancelled: { bg: '#fef2f2', color: '#dc2626' } };
   const s = c[status] ?? c.pending;
-  return <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 700, background: s.bg, color: s.color, textTransform: 'capitalize' }}>{status}</span>;
+  const labels: Record<string, string> = { confirmed: 'Bekräftad', pending: 'Väntande', cancelled: 'Avbokad' };
+  return <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 700, background: s.bg, color: s.color }}>{labels[status] ?? status}</span>;
 }
 function Fld({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</label>{children}</div>;

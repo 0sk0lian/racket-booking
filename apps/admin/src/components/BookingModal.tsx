@@ -16,10 +16,10 @@ import { AttendanceBoard } from './AttendanceBoard';
 export type BType = 'regular' | 'training' | 'contract' | 'event';
 
 export const TYPE_CONFIG: Record<BType, { bg: string; border: string; text: string; label: string; icon: string }> = {
-  regular:  { bg: '#ecfdf5', border: '#10b981', text: '#059669', label: 'Booking',  icon: 'B' },
-  training: { bg: '#eef2ff', border: '#6366f1', text: '#4f46e5', label: 'Training', icon: 'T' },
-  contract: { bg: '#fef3c7', border: '#f59e0b', text: '#b45309', label: 'Contract', icon: 'C' },
-  event:    { bg: '#fce7f3', border: '#ec4899', text: '#be185d', label: 'Event',    icon: 'E' },
+  regular:  { bg: '#ecfdf5', border: '#10b981', text: '#059669', label: 'Bokning', icon: 'B' },
+  training: { bg: '#eef2ff', border: '#6366f1', text: '#4f46e5', label: 'Träning', icon: 'T' },
+  contract: { bg: '#fef3c7', border: '#f59e0b', text: '#b45309', label: 'Avtal', icon: 'A' },
+  event:    { bg: '#fce7f3', border: '#ec4899', text: '#be185d', label: 'Evenemang', icon: 'E' },
 };
 
 export interface TrainerOpt { id: string; full_name: string; hourly_rate: number; }
@@ -139,7 +139,7 @@ export function BookingModal(props: BookingModalProps) {
               background: config.bg, color: config.text, fontWeight: 700, fontSize: 14,
             }}>{config.icon}</span>
             <h2 style={{ fontSize: 18, fontWeight: 700 }}>
-              {mode === 'create' ? `New ${config.label}` : `Edit ${config.label}`}
+              {mode === 'create' ? `Ny ${config.label.toLowerCase()}` : `Redigera ${config.label.toLowerCase()}`}
             </h2>
           </div>
           <button onClick={onCancel} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--text-muted)', padding: '4px 8px' }}>&times;</button>
@@ -150,9 +150,9 @@ export function BookingModal(props: BookingModalProps) {
             background: 'var(--bg-body)', borderRadius: 10, padding: 14, marginBottom: 20,
             display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12,
           }}>
-            <Info l="Court" v={summary.courtName} />
-            <Info l="Time" v={`${summary.startHour}:00 — ${summary.endHour}:00`} />
-            <Info l="Price" v={`${summary.totalPrice.toFixed(0)} SEK`} />
+            <Info l="Bana" v={summary.courtName} />
+            <Info l="Tid" v={`${summary.startHour}:00 — ${summary.endHour}:00`} />
+            <Info l="Pris" v={`${summary.totalPrice.toFixed(0)} SEK`} />
             <Info l="PIN" v={summary.accessPin ?? '—'} mono />
           </div>
         )}
@@ -183,40 +183,40 @@ export function BookingModal(props: BookingModalProps) {
           {mode === 'edit' && (
             <Field label="Status">
               <select value={status} onChange={e => setStatus(e.target.value as any)} style={inp}>
-                <option value="confirmed">Confirmed</option>
-                <option value="pending">Pending</option>
-                <option value="cancelled">Cancelled</option>
+                <option value="confirmed">Bekräftad</option>
+                <option value="pending">Väntande</option>
+                <option value="cancelled">Avbokad</option>
               </select>
             </Field>
           )}
-          <Field label={type === 'event' ? 'In charge' : 'Booker'}>
+          <Field label={type === 'event' ? 'Ansvarig' : 'Bokad av'}>
             <select value={bookerId} onChange={e => setBookerId(e.target.value)} style={inp}>
               <option value="">— Admin —</option>
               {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
             </select>
           </Field>
           {type === 'training' && (
-            <Field label="Trainer">
+            <Field label="Tränare">
               <select value={trainerId} onChange={e => setTrainerId(e.target.value)} style={inp}>
-                <option value="">Select trainer…</option>
+                <option value="">Välj tränare…</option>
                 {trainers.map(t => <option key={t.id} value={t.id}>{t.full_name} ({t.hourly_rate} SEK/h)</option>)}
               </select>
             </Field>
           )}
           {(type === 'contract' || type === 'training') && mode === 'create' && (
-            <Field label="Weeks repeated">
+            <Field label="Antal veckor">
               <input type="number" min={1} max={52} value={repeatWeeks} onChange={e => setRepeatWeeks(e.target.value)} style={inp} />
             </Field>
           )}
           {type === 'event' && (
             <>
-              <Field label="Event name">
-                <input value={eventName} onChange={e => setEventName(e.target.value)} style={inp} placeholder="e.g. Friday Social Padel" />
+              <Field label="Evenemangsnamn">
+                <input value={eventName} onChange={e => setEventName(e.target.value)} style={inp} placeholder="t.ex. Fredagspadel Social" />
               </Field>
-              <Field label="Max participants">
+              <Field label="Max antal deltagare">
                 <input type="number" min={2} max={64} value={eventMax} onChange={e => setEventMax(e.target.value)} style={inp} />
               </Field>
-              <Field label="Pricing (SEK)">
+              <Field label="Pris (SEK)">
                 <input type="number" min={0} value={eventPrice} onChange={e => setEventPrice(e.target.value)} style={inp} placeholder="0" />
               </Field>
             </>
@@ -226,7 +226,7 @@ export function BookingModal(props: BookingModalProps) {
         {/* Training roster — picker for create, AttendanceBoard for edit */}
         {type === 'training' && mode === 'create' && (
           <div style={{ marginBottom: 14 }}>
-            <label style={lbl}>Training roster</label>
+            <label style={lbl}>Deltagare</label>
             <PlayerPicker
               users={users}
               groups={groups}
@@ -238,7 +238,7 @@ export function BookingModal(props: BookingModalProps) {
         )}
         {type === 'training' && mode === 'edit' && bookingId && (
           <div style={{ marginBottom: 14 }}>
-            <label style={lbl}>Roster &amp; attendance</label>
+            <label style={lbl}>Deltagare och närvaro</label>
             <AttendanceBoard
               bookingId={bookingId}
               candidates={users.map(u => ({ id: u.id, full_name: u.full_name }))}
@@ -250,7 +250,7 @@ export function BookingModal(props: BookingModalProps) {
         {/* Event attendees — AttendanceBoard with check-in disabled (events less likely to need post-session attendance) */}
         {type === 'event' && mode === 'edit' && bookingId && (
           <div style={{ marginBottom: 14 }}>
-            <label style={lbl}>Attendees{eventMax ? ` (cap ${eventMax})` : ''}</label>
+            <label style={lbl}>Deltagare{eventMax ? ` (max ${eventMax})` : ''}</label>
             <AttendanceBoard
               bookingId={bookingId}
               candidates={users.map(u => ({ id: u.id, full_name: u.full_name }))}
@@ -260,15 +260,15 @@ export function BookingModal(props: BookingModalProps) {
           </div>
         )}
 
-        <Field label="Notes">
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }} placeholder="Optional…" />
+        <Field label="Anteckningar">
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }} placeholder="Valfritt…" />
         </Field>
 
         <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
           <button className="btn btn-primary" onClick={save} disabled={saving} style={{ flex: 1 }}>
-            {saving ? 'Saving…' : mode === 'create' ? `Create ${config.label}` : 'Save changes'}
+            {saving ? 'Sparar…' : mode === 'create' ? `Skapa ${config.label.toLowerCase()}` : 'Spara ändringar'}
           </button>
-          <button className="btn btn-outline" onClick={onCancel}>Cancel</button>
+          <button className="btn btn-outline" onClick={onCancel}>Avbryt</button>
           {mode === 'edit' && onDelete && (
             <button
               onClick={onDelete}
@@ -279,7 +279,7 @@ export function BookingModal(props: BookingModalProps) {
                 padding: '10px 18px', cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit',
               }}
             >
-              Delete
+              Ta bort
             </button>
           )}
         </div>

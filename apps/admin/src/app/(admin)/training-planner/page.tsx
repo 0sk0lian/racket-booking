@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 
 const API = '/api';
@@ -115,7 +115,7 @@ export default function TrainingPlannerPage() {
         })}
       </div>
 
-      {loading ? <div className="loading">Loading...</div> : (<>
+      {loading ? <div className="loading">Laddar...</div> : (<>
         {/* Per-day CTA — primary entry point now that the grid is gone */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div>
@@ -284,3 +284,4 @@ const inp: React.CSSProperties = { padding: '9px 12px', background: 'var(--bg-in
 const chip: React.CSSProperties = { padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1.5px solid var(--border)', transition: 'all 0.15s', fontFamily: 'inherit' };
 const ov: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 };
 const md: React.CSSProperties = { background: 'var(--bg-card)', borderRadius: 18, padding: 32, width: 620, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.12)', border: '1px solid var(--border)', animation: 'fadeUp 0.3s cubic-bezier(0.34,1.56,0.64,1) both' };
+

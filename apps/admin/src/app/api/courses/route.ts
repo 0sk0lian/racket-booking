@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '../../../lib/supabase/server';
 import { getRequestUser, getUserRole, getManagedClubIds, requireAdmin, requireClubAccess } from '../../../lib/auth/guards';
+import { resolveClubId } from '../../../lib/clubs';
 
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
@@ -18,7 +19,11 @@ export async function GET(request: NextRequest) {
   }
 
   let query = supabase.from('courses').select('*');
-  const requestedClubId = p.get('clubId');
+  const requestedClubIdentifier = p.get('clubId');
+  const requestedClubId = requestedClubIdentifier ? await resolveClubId(requestedClubIdentifier, supabase) : null;
+  if (requestedClubIdentifier && !requestedClubId) {
+    return NextResponse.json({ success: false, error: 'Club not found' }, { status: 404 });
+  }
   if (requestedClubId) {
     if (scopedClubIds !== null && !scopedClubIds.includes(requestedClubId)) {
       return NextResponse.json({ success: false, error: 'You do not have access to this venue' }, { status: 403 });
@@ -99,6 +104,7 @@ export async function POST(request: NextRequest) {
     registration_status: body.registrationStatus ?? 'draft',
     visibility: body.visibility ?? 'club',
     status: body.status ?? 'draft',
+    registration_form_id: body.registrationFormId ?? null,
   }).select().single();
 
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });

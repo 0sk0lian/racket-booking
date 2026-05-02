@@ -27,7 +27,7 @@ export interface RecurrenceEditorProps {
   hideOnce?: boolean;
 }
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAYS = ['Sön', 'Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör'];
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon..Sun visual order
 
 export function RecurrenceEditor({ value, onChange, hideOnce = false }: RecurrenceEditorProps) {
@@ -51,15 +51,15 @@ export function RecurrenceEditor({ value, onChange, hideOnce = false }: Recurren
   const removeSkip = (d: string) => update({ skipDates: value.skipDates.filter(x => x !== d) });
 
   const freqOptions: { key: Freq; label: string }[] = [
-    ...(hideOnce ? [] : [{ key: 'once' as Freq, label: 'One time' }]),
-    { key: 'weekly' as Freq, label: 'Weekly' },
-    { key: 'biweekly' as Freq, label: 'Bi-weekly' },
-    { key: 'monthly' as Freq, label: 'Monthly' },
+    ...(hideOnce ? [] : [{ key: 'once' as Freq, label: 'En gång' }]),
+    { key: 'weekly' as Freq, label: 'Varje vecka' },
+    { key: 'biweekly' as Freq, label: 'Varannan vecka' },
+    { key: 'monthly' as Freq, label: 'Varje månad' },
   ];
 
   return (
     <div style={panelStyle}>
-      <div style={sectionHdr}>Recurrence</div>
+      <div style={sectionHdr}>Upprepning</div>
 
       {/* Frequency */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -86,7 +86,7 @@ export function RecurrenceEditor({ value, onChange, hideOnce = false }: Recurren
       {/* Weekdays (only for weekly / biweekly) */}
       {(value.freq === 'weekly' || value.freq === 'biweekly') && (
         <div style={{ marginBottom: 12 }}>
-          <label style={miniLbl}>On</label>
+          <label style={miniLbl}>På</label>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {DAY_ORDER.map(d => {
               const on = value.weekdays.includes(d);
@@ -114,7 +114,7 @@ export function RecurrenceEditor({ value, onChange, hideOnce = false }: Recurren
       {/* Monthly interval */}
       {value.freq === 'monthly' && (
         <div style={{ marginBottom: 12 }}>
-          <label style={miniLbl}>Every</label>
+          <label style={miniLbl}>Var</label>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <input
               type="number"
@@ -125,7 +125,7 @@ export function RecurrenceEditor({ value, onChange, hideOnce = false }: Recurren
               style={{ ...inp, width: 80 }}
             />
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              month{value.intervalN === 1 ? '' : 's'}
+              månad{value.intervalN === 1 ? '' : 'er'}
             </span>
           </div>
         </div>
@@ -134,11 +134,11 @@ export function RecurrenceEditor({ value, onChange, hideOnce = false }: Recurren
       {/* Start / end dates */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <div>
-          <label style={miniLbl}>Start date</label>
+          <label style={miniLbl}>Startdatum</label>
           <input type="date" value={value.startDate} onChange={e => update({ startDate: e.target.value })} style={inp} />
         </div>
         <div>
-          <label style={miniLbl}>End date <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
+          <label style={miniLbl}>Slutdatum <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(valfritt)</span></label>
           <div style={{ display: 'flex', gap: 6 }}>
             <input
               type="date"
@@ -155,7 +155,7 @@ export function RecurrenceEditor({ value, onChange, hideOnce = false }: Recurren
                   border: '1px solid var(--border)', background: 'var(--bg-body)',
                   color: 'var(--text-muted)', fontFamily: 'inherit',
                 }}
-                title="Remove end date (open-ended)"
+                title="Ta bort slutdatum (öppet slut)"
               >
                 &times;
               </button>
@@ -166,7 +166,7 @@ export function RecurrenceEditor({ value, onChange, hideOnce = false }: Recurren
 
       {/* Skip dates */}
       <div>
-        <label style={miniLbl}>Skip dates <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(holidays, personal)</span></label>
+        <label style={miniLbl}>Undantagna datum <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(helgdagar, personligt)</span></label>
         <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
           <input type="date" value={skipInput} onChange={e => setSkipInput(e.target.value)} style={inp} />
           <button
@@ -179,7 +179,7 @@ export function RecurrenceEditor({ value, onChange, hideOnce = false }: Recurren
               color: skipInput ? '#4f46e5' : 'var(--text-dim)', fontFamily: 'inherit',
             }}
           >
-            Add skip
+            Lägg till
           </button>
         </div>
         {value.skipDates.length > 0 && (
@@ -193,7 +193,7 @@ export function RecurrenceEditor({ value, onChange, hideOnce = false }: Recurren
                   background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a',
                   cursor: 'pointer',
                 }}
-                title="Remove"
+                title="Ta bort"
               >
                 {d} &times;
               </span>
@@ -210,18 +210,22 @@ export function RecurrenceEditor({ value, onChange, hideOnce = false }: Recurren
 }
 
 function summarize(v: RecurrenceValue): string {
-  if (v.freq === 'once') return `Once on ${v.startDate}`;
+  if (v.freq === 'once') return `En gång den ${v.startDate}`;
   const days = v.weekdays.length
     ? v.weekdays.slice().sort((a, b) => {
         const am = a === 0 ? 7 : a; const bm = b === 0 ? 7 : b;
         return am - bm;
       }).map(d => DAYS[d]).join(', ')
-    : '(no weekdays)';
-  const base = v.freq === 'weekly' ? `Every week on ${days}`
-    : v.freq === 'biweekly' ? `Every other week on ${days}`
-    : `Every ${v.intervalN} month${v.intervalN === 1 ? '' : 's'}`;
-  const range = v.endDate ? `from ${v.startDate} to ${v.endDate}` : `starting ${v.startDate} (open-ended)`;
-  const skips = v.skipDates.length ? `, skipping ${v.skipDates.length}` : '';
+    : '(inga veckodagar valda)';
+  const base = v.freq === 'weekly'
+    ? `Varje vecka på ${days}`
+    : v.freq === 'biweekly'
+      ? `Varannan vecka på ${days}`
+      : `Var ${v.intervalN}:e månad`;
+  const range = v.endDate
+    ? `från ${v.startDate} till ${v.endDate}`
+    : `med start ${v.startDate} (utan slutdatum)`;
+  const skips = v.skipDates.length ? `, ${v.skipDates.length} undantagna datum` : '';
   return `${base}, ${range}${skips}`;
 }
 

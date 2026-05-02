@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-interface Club { id: string; name: string; city: string | null; }
+interface Club { id: string; slug?: string | null; name: string; city: string | null; }
 interface Court { id: string; club_id: string; sport_type: string; base_hourly_rate: number; }
 
 export default function ClubsPage() {
@@ -43,7 +43,7 @@ export default function ClubsPage() {
             const sports = [...new Set(cc.map(c => c.sport_type))];
             const minPrice = cc.length > 0 ? Math.min(...cc.map(c => c.base_hourly_rate)) : null;
             return (
-              <Link href={`/clubs/${club.id}`} key={club.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, overflow: 'hidden', textDecoration: 'none', color: 'inherit', transition: 'box-shadow 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+              <Link href={`/clubs/${club.slug || club.id}`} key={club.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, overflow: 'hidden', textDecoration: 'none', color: 'inherit', transition: 'box-shadow 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
                 <div style={{ height: 120, background: 'linear-gradient(135deg, #6366f1, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span style={{ fontSize: 36, fontWeight: 800, color: 'rgba(255,255,255,0.25)' }}>{club.name.charAt(0)}</span>
                 </div>
